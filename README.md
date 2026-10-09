@@ -1,5 +1,5 @@
 # my-game-project
-# Dự Án Game Haskell - Nhóm X
+# Dự Án Game Haskell 
 
 ## 1. Môi trường & Cấu hình[cite: 1]
 - **Resolver**: `lts-21.25`[cite: 1]
