@@ -93,7 +93,6 @@ Dùng thư viện **Hspec**, đã khai báo sẵn trong `test-suite` của file 
 ```bash
 stack test
 ```
-Tất cả test phải qua trước khi `git push`.
 
 **Các test hiện có:**
 - `Map`: `newMap` lưu đúng kích thước. `inBounds` đúng ở các biên (`(0,0)`, `(9,9)` trong map 10x10, `x = 10`, tọa độ âm). `renderMap` có đúng một chữ `P`, và hàng đầu toàn tường `#`.
