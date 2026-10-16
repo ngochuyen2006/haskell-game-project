@@ -62,7 +62,7 @@ let m = newMap 10 10
 inBounds (5, 5) m
 putStrLn (renderMap m (3, 3))
 
-## 16/10/26 Người chơi, nhập phím và kiểm thử (`Player.hs`, `Input.hs`, `test/Spec.hs`)
+## Người 4: Người chơi, nhập phím và kiểm thử (`Player.hs`, `Input.hs`, `test/Spec.hs`)
 
 Phụ trách kiểu dữ liệu người chơi, đọc phím từ bàn phím và bộ test tự động cho `Map` và `Movement`.
 
