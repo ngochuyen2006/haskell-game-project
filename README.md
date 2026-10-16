@@ -44,3 +44,20 @@ Khi cần khởi tạo thêm một file module mới trong thư mục `src/` (v�
                         , Player
                         , Input
                         , NewModule  -- Thêm tên module mới tại đây
+
+## 16/10/26 Module Bản đồ (`Map.hs`)
+
+Phụ trách xây dựng khung lưới, hệ thống tọa độ và hiển thị không gian trò chơi.
+
+Các hàm cốt lõi đã hoàn thành:
+- **`newMap`**: Khởi tạo kích thước bản đồ lưới dựa trên chiều rộng và chiều cao (`GameMap w h`).
+- **`inBounds`**: Kiểm tra tọa độ `(x, y)` có nằm hợp lệ trong biên giới bản đồ hay không (tuân thủ hệ tọa độ máy tính: gốc `(0,0)` ở góc trên bên trái, $x$ tăng sang phải, $y$ tăng xuống dưới).
+- **`renderMap`**: Kết xuất bản đồ thành chuỗi ký tự (`String`) để hiển thị trực quan trực tiếp trên terminal với các quy ước:
+  - `#`: Tường biên xung quanh.
+  - `P`: Vị trí hiện tại của người chơi.
+  - `.`: Ô trống bên trong.
+
+Chạy thử nghiệm khởi tạo và hiển thị:
+let m = newMap 10 10
+inBounds (5, 5) m
+putStrLn (renderMap m (3, 3))
