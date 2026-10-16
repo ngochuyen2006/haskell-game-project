@@ -86,11 +86,6 @@ c <- readKey
 print (keyToDir c)
 ```
 
-**Lưu ý `ghci` và `stack run`:**
-- Nên thử `readKey` bằng `stack run`. Trong `stack ghci`, tùy terminal, đôi khi vẫn phải nhấn Enter hoặc phím bị hiện ra.
-- Khi `stdin` không phải terminal (ví dụ `echo w | stack run`) thì tắt echo có thể báo lỗi.
-- `readKey` không được kiểm thử tự động vì cần bàn phím thật. Hãy thử tay bằng `stack run`.
-
 ### Kiểm thử (`test/Spec.hs`)
 Dùng thư viện **Hspec**, đã khai báo sẵn trong `test-suite` của file `.cabal`.
 
@@ -109,10 +104,3 @@ Tất cả test phải qua trước khi `git push`.
 it "mô tả test" $
   movePlayer (5, 5) MUp (10, 10) `shouldBe` (5, 4)
 ```
-
-**Cách tạo file test mới:** nếu tách file test riêng thì phải thêm module vào `other-modules` của `test-suite` trong `.cabal`. Đây là file chung nên phải báo cả nhóm trước.
-
-**Lưu ý khi viết test:**
-- `Map.hs` và `Types.hs` đều định nghĩa `Position` nên không ghi `:: Position` trong test, hãy dùng tọa độ trực tiếp như `(5, 5)`.
-- Nếu `Map` hoặc `Movement` đổi chữ ký hàm thì phải sửa test tương ứng.
-- Phát hiện test fail do code của người khác thì báo cho chủ module, không tự sửa file của họ.
