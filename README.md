@@ -116,5 +116,3 @@ it "mô tả test" $
 - `Map.hs` và `Types.hs` đều định nghĩa `Position` nên không ghi `:: Position` trong test, hãy dùng tọa độ trực tiếp như `(5, 5)`.
 - Nếu `Map` hoặc `Movement` đổi chữ ký hàm thì phải sửa test tương ứng.
 - Phát hiện test fail do code của người khác thì báo cho chủ module, không tự sửa file của họ.
-
-**Ghi chú nguồn:** phần AI hỗ trợ viết `Input.hs` và `test/Spec.hs`, đã được kiểm tra và chạy thử bởi người phụ trách.
