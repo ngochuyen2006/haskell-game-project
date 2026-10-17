@@ -1,8 +1,7 @@
 module Map where
 --này tự định nghĩa để code độc lập trước
 
---khi đọc code sẽ biết type Position là tọa độ x, y
-type Position = (Int, Int)
+import types
 
 {-đoạn dưới là kiểu dữ liệu định nghĩa dạng bản ghi,
 lưu trữ hai trường dữ liệu kiểu số nguyên: chiều rộng và chiều cao,
