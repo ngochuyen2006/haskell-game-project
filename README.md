@@ -103,3 +103,24 @@ stack test
 it "mô tả test" $
   movePlayer (5, 5) MUp (10, 10) `shouldBe` (5, 4)
 ```
+## 19/10/26 Xử lý Lãnh thổ & Tối ưu hóa Vector
+1. Mục tiêu Tuần 2
+* **Xây dựng module `Territory.hs`**: Hiện thực hóa thuật toán bao vây và chiếm đóng lãnh thổ.
+* **Ứng dụng thuật toán Flood Fill (Layer-by-layer BFS)**: Tự động nhận diện không gian "bên ngoài" bản đồ bắt đầu từ các mép biên, từ đó cô lập và chuyển hóa các ô trống bên trong thành lãnh thổ của người chơi.
+* **Tối ưu hóa hiệu năng với `Data.Vector`**: Dùng mảng `Vector` 1 chiều để đạt tốc độ truy xuất $O(1)$ và nhanh chóng tính toán điểm số.
+2. Cấu trúc Module & Phân chia
+* **`Types.hs`**: Định nghĩa kiểu dữ liệu cơ bản (`Position`, `Tile`, `GameMap`, `Trail`).
+* **`Map.hs`**: Quản lý bản đồ dưới dạng mảng `Vector` 1 chiều với các thao tác truy xuất `getTile` và cập nhật `setTile` an toàn.
+* **`Trail.hs`**: Theo dõi vết đường đi của người chơi trong thời gian thực.
+* **`Territory.hs`** *(Trọng tâm tuần này)*:
+  * `claimTerritory`: Hàm cốt lõi xử lý khi người chơi khép kín vòng vây.
+  * `findOutsideCells`: Thuật toán BFS duyệt từng tầng (*layer-by-layer*) lan tỏa từ biên ngoài cùng để loại bỏ vùng bên ngoài.
+  * `calculateTerritorySize`: Hàm đếm điểm số dựa trên bộ lọc vector (`V.filter` và `V.length`).
+3. Điểm nhấn của `Data.Vector`
+Trong phiên bản này, toàn bộ dữ liệu lưới bản đồ (`grid`) được lưu trữ dưới dạng **`V.Vector Tile`** thay vì danh sách thông thường. 
+* **Truy xuất $O(1)$**: Giúp các hàm kiểm tra ô (`getTile`) và cập nhật ô (`setTile`) chạy với tốc độ tối đa, không bị giật lag khi bản đồ mở rộng kích thước.
+* **Tính điểm số hiệu quả**: Hàm tính diện tích lãnh thổ (`calculateTerritorySize`) sử dụng trực tiếp các hàm tối ưu từ thư viện Vector:
+  ```haskell
+  calculateTerritorySize :: GameMap -> Int
+  calculateTerritorySize (GameMap _ _ g) = 
+      V.length (V.filter (== Territory) g)

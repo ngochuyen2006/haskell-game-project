@@ -1,32 +1,65 @@
 module Map where
---này tự định nghĩa để code độc lập trước
 
-import types
+import Types
+import qualified Data.Vector as V
+
+--Các loại ô trên bản đồ
+data Tile
+  = Empty --ô trống (.)
+  | Wall --tường (#)
+  | Territory --lãnh thổ đã chiếm (O)
+  | TrailTile --đường đi đang vẽ (*)
+  deriving (Show, Eq) 
 
 {-đoạn dưới là kiểu dữ liệu định nghĩa dạng bản ghi,
-lưu trữ hai trường dữ liệu kiểu số nguyên: chiều rộng và chiều cao,
+lưu trữ ba trường dữ liệu kiểu số nguyên: chiều rộng,chiều cao và ma trận grid,
 bản ghi sẽ tự động sinh ra sẵn hai hàm lấy giá trị (getter) tương ứng
-để dễ dàng gọi ra dùng
+để dễ dàng gọi ra dùng.
 -}
 data GameMap = GameMap 
-  { mapWidth  :: Int
+  { mapWidth :: Int
   , mapHeight :: Int
+  , grid :: V.Vector Tile
   } deriving (Show, Eq)
 
---khởi tạo bản đồ với chiều rộng w và chiều cao h
+{-khởi tạo bản đồ với chiều rộng w, chiều cao h và khởi tạo vector,
+w * h là tổng số ô,
+initCell là thuật toán cho các dòngk ma trận thành 1 dòng
+-}
 newMap :: Int -> Int -> GameMap
-newMap w h = GameMap w h
+newMap w h = GameMap w h (V.generate (w * h) initCell)
+  where
+    --để máy hiểu idx của 1 chiều ở tọa độ nào trên map 2 chiều
+    initCell idx = 
+      let x = idx `mod` w --cột mấy
+          y = idx `div` w --hàng mấy
+      in if x == 0 || x == w - 1 || y == 0 || y == h - 1 
+         then Wall 
+         else Empty
 
 --check xem 1 tọa độ bất kỳ có nằm trong biên bản đồ hay k
 inBounds :: Position -> GameMap -> Bool
-inBounds (x, y) (GameMap w h) = 
+inBounds (x, y) (GameMap w h _) = 
   x >= 0 && x < w && y >= 0 && y < h
-{-dòng trên kiểm tra cùng lúc 4 đkien:
-x >= 0: Hoành độ x phải lớn hơn hoặc bằng mép trái (không bị âm)
-x < w: Hoành độ x phải nhỏ hơn chiều rộng w (không vượt quá mép phải)
-y >= 0: Tung độ y phải lớn hơn hoặc bằng mép trên (không bị âm)
-y < h: Tung độ y phải nhỏ hơn chiều cao h (không rơi xuống dưới đáy)
+
+{-hàm này chỉ đọc thôi, như là biết trạng thái ô đang có gì,
+hàm này giúp renderMap biết ô đó là # hay . để in ra màn hình,
+dùng maybe trả về just để k bị crash nếu tọa độ lỗi
 -}
+getTile :: Position -> GameMap -> Maybe Tile
+--gắn lại tên sau khi phân rã để ném vào inBounds, dùng @
+getTile (x, y) gameMap@(GameMap w h g)
+  --(y * w + x) là đang ở 2 chiều, truy về 1 chiều (đang ở idx mấy)
+  | inBounds (x, y) gameMap = Just (g V.! (y * w + x))
+  | otherwise = Nothing
+
+--cập nhật trạng thái một ô trên bản đồ (thay đổi từ hành động của người chơi)
+setTile :: Position -> Tile -> GameMap -> GameMap
+--newTile là ô mang gtri mới
+setTile (x, y) newTile gameMap@(GameMap w h g)
+  | not (inBounds (x, y) gameMap) = gameMap
+  --phải trả về gameMap vì nếu đã k có trong map rồi mà còn cố đi tìm trong vector nữa thì crash
+  | otherwise = GameMap w h (g V.// [(y * w + x, newTile)])
 
 --vẽ bản đồ
 {-mục tiêu: Chuyển cấu trúc GameMap và vị trí hiện tại của người chơi (Position) 
@@ -34,7 +67,7 @@ thành một bức tranh dạng chữ (String) để in ra màn hình qua lệnh
 -}
 renderMap :: GameMap -> Position -> String
 --playerPos là vị trí người chơi
-renderMap (GameMap w h) playerPos = unlines [ renderRow y | y <- [0 .. h - 1] ]
+renderMap (GameMap w h g) playerPos = unlines [ renderRow y | y <- [0 .. h - 1] ]
 {-danh sách trên có nghĩa là "hãy lần lượt gọi hàm renderRow để vẽ từng hàng y 
 (chạy từ hàng số 0 ở trên cùng xuống đến hàng cuối cùng h - 1 ở đáy)".
 Từ đó thu được một danh sách các dòng chữ mà mỗi dòng là 1 hàng ngang.
@@ -47,12 +80,14 @@ với nhau thành một chuỗi duy nhất, cách nhau bởi ký tự xuống d�
     renderRow y = [ getCharForCell (x, y) | x <- [0 .. w - 1] ]
     
     --xác định ký tự tại mỗi ô tọa độ
-    getCharForCell pos
-      | pos == playerPos = 'P'          --vị trí người chơi
-      | isWall pos       = '#'          --tường biên xung quanh
-      | otherwise        = '.'          --ô trống bên trong
+    getCharForCell pos@(x, y)
+      | pos == playerPos = 'P' --vị trí người chơi
+      | otherwise = case getTile pos (GameMap w h g) of
+          Just Wall -> '#'
+          Just Territory -> 'O'
+          Just TrailTile -> '*'
+          Just Empty -> '.'
+          Nothing -> ' '
 
-    --kiểm tra xem một tọa độ có phải là tường biên hay không
-    isWall (x, y) = x == 0 || x == w - 1 || y == 0 || y == h - 1
 --vì sao lại là w - 1 và h - 1?
 --vì index bắt đầu từ số 0. Nếu w = 10 thì đến mép nó là 9
