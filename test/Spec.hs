@@ -1,49 +1,21 @@
 module Main (main) where
 
 import Test.Hspec
-import Map
-import Movement
-import Types
 
+import qualified MapSpec
+import qualified MovementSpec
+import qualified PlayerSpec
+import qualified InputSpec
+import qualified GameSpec
+import qualified UISpec
+
+-- Mỗi module có một file test riêng, xuất ra `spec :: Spec`.
+-- Thêm file test mới: xem hướng dẫn trong README (mục "Kiểm thử").
 main :: IO ()
 main = hspec $ do
-  describe "Map" $ do
-    it "newMap lưu đúng kích thước" $
-      newMap 10 10 `shouldBe` GameMap 10 10
-    it "inBounds: góc (0,0) hợp lệ" $
-      inBounds (0, 0) (newMap 10 10) `shouldBe` True
-    it "inBounds: (9,9) hợp lệ" $
-      inBounds (9, 9) (newMap 10 10) `shouldBe` True
-    it "inBounds: x = 10 ngoài biên" $
-      inBounds (10, 5) (newMap 10 10) `shouldBe` False
-    it "inBounds: tọa độ âm ngoài biên" $
-      inBounds (-1, 5) (newMap 10 10) `shouldBe` False
-    it "renderMap: có đúng 1 chữ P" $
-      length (filter (== 'P') (renderMap (newMap 10 10) (3, 3))) `shouldBe` 1
-    it "renderMap: hàng đầu toàn tường" $
-      head (lines (renderMap (newMap 10 10) (3, 3))) `shouldBe` replicate 10 '#'
-
-  describe "Movement" $ do
-    it "keyToDir w/a/s/d" $ do
-      keyToDir 'w' `shouldBe` Just MUp
-      keyToDir 's' `shouldBe` Just MDown
-      keyToDir 'a' `shouldBe` Just MLeft
-      keyToDir 'd' `shouldBe` Just MRight
-    it "keyToDir: phím khác là Nothing" $
-      keyToDir 'x' `shouldBe` Nothing
-    it "đi lên thì y giảm 1" $
-      movePlayer (5, 5) MUp (10, 10) `shouldBe` (5, 4)
-    it "đi xuống thì y tăng 1" $
-      movePlayer (5, 5) MDown (10, 10) `shouldBe` (5, 6)
-    it "đi trái thì x giảm 1" $
-      movePlayer (5, 5) MLeft (10, 10) `shouldBe` (4, 5)
-    it "đi phải thì x tăng 1" $
-      movePlayer (5, 5) MRight (10, 10) `shouldBe` (6, 5)
-    it "chạm biên trên thì đứng yên" $
-      movePlayer (5, 0) MUp (10, 10) `shouldBe` (5, 0)
-    it "chạm biên trái thì đứng yên" $
-      movePlayer (0, 5) MLeft (10, 10) `shouldBe` (0, 5)
-    it "chạm biên dưới thì đứng yên" $
-      movePlayer (5, 9) MDown (10, 10) `shouldBe` (5, 9)
-    it "chạm biên phải thì đứng yên" $
-      movePlayer (9, 5) MRight (10, 10) `shouldBe` (9, 5)
+  describe "Map"      MapSpec.spec
+  describe "Movement" MovementSpec.spec
+  describe "Player"   PlayerSpec.spec
+  describe "Input"    InputSpec.spec
+  describe "Game"     GameSpec.spec
+  describe "UI"       UISpec.spec
