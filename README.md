@@ -62,47 +62,6 @@ let m = newMap 10 10
 inBounds (5, 5) m
 putStrLn (renderMap m (3, 3))
 
-## Người 4: Người chơi, nhập phím và kiểm thử (`Player.hs`, `Input.hs`, `test/Spec.hs`)
-
-Phụ trách kiểu dữ liệu người chơi, đọc phím từ bàn phím và bộ test tự động cho `Map` và `Movement`.
-
-### Player (`src/Player.hs`)
-- **`Player`**: bản ghi lưu trạng thái người chơi, hiện chỉ có `playerPos :: Position` (vị trí `(x, y)`).
-- **`newPlayer :: Position -> Player`**: tạo người chơi tại vị trí cho trước.
-- Export: `Player(..)`, `newPlayer`.
-- Khi cần thêm thuộc tính (điểm, đường đi...) thì thêm trường vào `Player`.
-
-```haskell
-let p = newPlayer (1, 1)
-playerPos p   -- (1,1)
-```
-
-### Input (`src/Input.hs`)
-- **`readKey :: IO Char`**: đọc đúng một phím, không cần nhấn Enter và không hiện phím vừa gõ lên màn hình (dùng `NoBuffering` và tắt echo cho `stdin`).
-- Export: `readKey`.
-
-```haskell
-c <- readKey
-print (keyToDir c)
-```
-
-### Kiểm thử (`test/Spec.hs`)
-Dùng thư viện **Hspec**, đã khai báo sẵn trong `test-suite` của file `.cabal`.
-
-**Chạy test:**
-```bash
-stack test
-```
-
-**Các test hiện có:**
-- `Map`: `newMap` lưu đúng kích thước. `inBounds` đúng ở các biên (`(0,0)`, `(9,9)` trong map 10x10, `x = 10`, tọa độ âm). `renderMap` có đúng một chữ `P`, và hàng đầu toàn tường `#`.
-- `Movement`: `keyToDir` đúng với w/a/s/d, phím khác trả về `Nothing`. `movePlayer` đi đúng 4 hướng (đi lên thì `y` giảm 1, đi xuống thì `y` tăng 1, đi trái thì `x` giảm 1, đi phải thì `x` tăng 1). Chạm biên thì đứng yên ở cả 4 phía.
-
-**Cách thêm test mới:** thêm một khối `it` vào `describe` tương ứng trong `test/Spec.hs`:
-```haskell
-it "mô tả test" $
-  movePlayer (5, 5) MUp (10, 10) `shouldBe` (5, 4)
-```
 ## 19/10/26 Xử lý Lãnh thổ & Tối ưu hóa Vector
 1. Mục tiêu Tuần 2
 * **Xây dựng module `Territory.hs`**: Hiện thực hóa thuật toán bao vây và chiếm đóng lãnh thổ.
