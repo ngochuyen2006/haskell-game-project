@@ -1,0 +1,1 @@
+--xử lý các va chạm, đụng tường, chạm trail, chạm vật phẩm thì gọi ỉtem
