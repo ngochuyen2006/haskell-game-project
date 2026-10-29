@@ -84,77 +84,111 @@ Trong phiên bản này, toàn bộ dữ liệu lưới bản đồ (`grid`) đ�
   calculateTerritorySize (GameMap _ _ g) = 
       V.length (V.filter (== Territory) g)
 
-Người 4: Player, Input, UI, vòng chơi và kiểm thử
+## Người 4: Player, Input, UI, vòng chơi và kiểm thử
 
-Phụ trách: src/Player.hs, src/Input.hs, src/Items.hs, src/Game.hs, src/UI.hs, src/GameLoop.hs, app/Main.hs và thư mục test/.
+**Phụ trách:** `src/Player.hs`, `src/Input.hs`, `src/Items.hs`, `src/Game.hs`, `src/UI.hs`, `src/GameLoop.hs`, `app/Main.hs` và thư mục `test/`.
 
-1. Chạy game
-bash
+### 1. Chạy game
+
+```bash
 stack run                      # chơi (mặc định 60 giây/ván)
 stack run -- --time 30         # đổi thời gian một ván (giây)
 stack run -- --no-color        # tắt màu ANSI
 stack run -- --help
-	Lên	Xuống	Trái	Phải
-Người chơi 1	W	S	A	D
-Người chơi 2	I	K	J	L
+```
 
-Bấm Q để thoát. Không phân biệt hoa/thường. Phím khác bị bỏ qua.
+| Người chơi | Lên | Xuống | Trái | Phải |
+|:---:|:---:|:---:|:---:|:---:|
+| **P1** | `W` | `S` | `A` | `D` |
+| **P2** | `I` | `K` | `J` | `L` |
 
-2. Kiến trúc: tách giao diện khỏi luật chơi
+Bấm `Q` để thoát. Không phân biệt hoa/thường. Phím khác bị bỏ qua.
+
+### 2. Kiến trúc: tách giao diện khỏi luật chơi
+
+```
 Input.parseKey  -->  Game.applyMove / Game.tick  -->  UI.renderGame
  (phím -> Action)     (luật chơi, hàm thuần)          (GameState -> String)
 
         GameLoop.runGame nối phím + đồng hồ + màn hình (phần IO duy nhất)
+```
 
-Luật chơi (Game.hs) không có IO nên test tự động được. Muốn đổi giao diện chỉ cần sửa UI.hs, không đụng tới luật.
+| Tầng | Module | Có IO? | Vai trò |
+|---|---|:---:|---|
+| Nhập | `Input` | Có | Đọc phím, đổi phím thành thao tác |
+| Luật chơi | `Game`, `Items`, `Player` | Không | Cập nhật `GameState`, test tự động được |
+| Hiển thị | `UI` | Không (trừ vài hàm vẽ) | Đổi `GameState` thành chuỗi để in |
+| Nối | `GameLoop` | Có | Vòng lặp: phím, đồng hồ, màn hình |
 
-3. Các module
+Luật chơi (`Game.hs`) không có IO nên test tự động được. Muốn đổi giao diện chỉ cần sửa `UI.hs`, không đụng tới luật.
 
-Player.hs
+### 3. Các module
 
-PlayerId = P1 | P2
-Player { playerId, playerPos, playerTrail, playerPenalty }
-newPlayer :: PlayerId -> Position -> Player
-opponent, setPlayerPos, addPenalty, extendTrail, resetTrail
-Không lưu đất và điểm ở đây vì GameState đã quản lý. Điểm = số ô đất - điểm phạt (scoreOf).
+| File | Vai trò | Kiểu / hàm chính |
+|---|---|---|
+| `Player.hs` | Dữ liệu người chơi | `PlayerId = P1 \| P2`, `Player`, `newPlayer`, `opponent`, `setPlayerPos`, `addPenalty`, `extendTrail`, `resetTrail` |
+| `Input.hs` | Nhận phím | `Action`, `parseKey`, `readKey`, `readKeyTimeout`, `withRawInput` |
+| `Game.hs` | Toàn bộ luật chơi | `Config`, `defaultConfig`, `GameState`, `initGame`, `applyMove`, `tick`, `scoreOf`, `territorySize`, `landAt`, `isFinished` |
+| `Items.hs` | Vật phẩm | `ItemKind = Bomb \| Expand`, `Item`, bộ sinh số ngẫu nhiên đơn giản (không cần thư viện `random`) |
+| `UI.hs` | Giao diện | `renderGame`, `renderBoard`, `renderIntro`, `describeEvent`, `describeOutcome`, `drawFrame`, `clearScreen`, `hideCursor`, `showCursor` |
+| `GameLoop.hs` | Vòng chơi | `runGame :: Config -> Bool -> IO ()` |
+| `app/Main.hs` | Điểm vào chương trình | Đọc tham số `--time`, `--no-color`, `--help` rồi gọi `runGame` |
 
-Input.hs
+**Player.hs**
 
-Action = Move PlayerId Direction | Quit
-parseKey :: Char -> Maybe Action: chuyển phím thành thao tác, dùng lại keyToDir của Movement.hs.
-readKey :: IO Char: đọc 1 phím, không cần Enter, không hiện phím ra màn hình.
-readKeyTimeout :: Int -> IO (Maybe Char): chờ phím tối đa vài mili-giây để đồng hồ vẫn chạy; bỏ qua chuỗi phím mũi tên; hết dữ liệu nhập (EOF) coi như bấm Q.
-withRawInput :: IO a -> IO a: bật chế độ đọc phím tức thời và luôn khôi phục terminal khi kết thúc.
+| Thành phần | Mô tả |
+|---|---|
+| `Player { playerId, playerPos, playerTrail, playerPenalty }` | Mã, vị trí, vệt đường, điểm bị phạt |
+| `newPlayer :: PlayerId -> Position -> Player` | Tạo người chơi tại vị trí cho trước |
+| `opponent`, `setPlayerPos`, `addPenalty`, `extendTrail`, `resetTrail` | Hàm cập nhật nhỏ |
 
-Game.hs
+Không lưu đất và điểm ở `Player` vì `GameState` đã quản lý. Điểm = số ô đất - điểm phạt (`scoreOf`).
 
-Config / defaultConfig: mọi con số của luật gom về một chỗ (xem mục 5).
-GameState: cấu hình, hai người chơi, hai lớp đất, vật phẩm, thời gian còn lại, trạng thái, sự kiện gần nhất.
-initGame :: Config -> GameState
-applyMove :: PlayerId -> Direction -> GameState -> GameState: một lần bấm phím = đi một ô.
-tick :: Double -> GameState -> GameState: cho thời gian trôi, sinh/xóa vật phẩm, kết thúc ván khi hết giờ.
-scoreOf, territorySize, landAt, isFinished
+**Input.hs**
 
-Items.hs: kiểu vật phẩm (Bomb, Expand) và bộ sinh số ngẫu nhiên đơn giản (không cần thêm thư viện random).
+| Hàm | Mô tả |
+|---|---|
+| `Action = Move PlayerId Direction \| Quit` | Thao tác game xử lý được |
+| `parseKey :: Char -> Maybe Action` | Chuyển phím thành thao tác, dùng lại `keyToDir` của `Movement.hs` |
+| `readKey :: IO Char` | Đọc 1 phím, không cần Enter, không hiện phím ra màn hình |
+| `readKeyTimeout :: Int -> IO (Maybe Char)` | Chờ phím tối đa vài mili-giây để đồng hồ vẫn chạy; bỏ qua chuỗi phím mũi tên; hết dữ liệu nhập (EOF) coi như bấm `Q` |
+| `withRawInput :: IO a -> IO a` | Bật chế độ đọc phím tức thời và luôn khôi phục terminal khi kết thúc |
 
-UI.hs
+**Game.hs**
 
-renderGame :: Bool -> GameState -> String (Bool = bật màu), renderBoard, renderIntro
-describeEvent, describeOutcome: đổi sự kiện và kết quả thành chữ hiển thị.
-drawFrame, clearScreen, hideCursor, showCursor
+| Thành phần | Mô tả |
+|---|---|
+| `Config` / `defaultConfig` | Mọi con số của luật gom về một chỗ (xem mục 5) |
+| `GameState` | Cấu hình, hai người chơi, hai lớp đất, vật phẩm, thời gian còn lại, trạng thái, sự kiện gần nhất |
+| `initGame :: Config -> GameState` | Tạo ván mới |
+| `applyMove :: PlayerId -> Direction -> GameState -> GameState` | Một lần bấm phím = đi một ô |
+| `tick :: Double -> GameState -> GameState` | Cho thời gian trôi, sinh/xóa vật phẩm, kết thúc ván khi hết giờ |
+| `scoreOf`, `territorySize`, `landAt`, `isFinished` | Truy vấn trạng thái |
 
-GameLoop.hs: runGame :: Config -> Bool -> IO () chạy cả ván: màn hình giới thiệu, bắt đầu, nhận phím, cập nhật, vẽ lại, kết thúc.
+**UI.hs**
 
-4. Bố cục màn hình
-Tiêu đề và thời gian còn lại
-Điểm hai người chơi (đất, phạt, điểm)
-Bản đồ
-Thông báo sự kiện gần nhất và trạng thái ván (đang chơi / kết quả)
-Hướng dẫn điều khiển và chú thích ký hiệu
-Ký hiệu	Ý nghĩa
-1 / 2	Người chơi P1 / P2
-O / X	Đất của P1 / P2
-o / x	Vệt đường của P1 / P2
-@	Bom
-+	Phình lãnh địa
-.	Ô trống
+| Hàm | Mô tả |
+|---|---|
+| `renderGame :: Bool -> GameState -> String` | Vẽ cả màn hình (`Bool` = bật màu) |
+| `renderBoard`, `renderIntro` | Vẽ bản đồ, màn hình giới thiệu |
+| `describeEvent`, `describeOutcome` | Đổi sự kiện và kết quả thành chữ hiển thị |
+| `drawFrame`, `clearScreen`, `hideCursor`, `showCursor` | Hàm điều khiển terminal |
+
+### 4. Bố cục màn hình
+
+| Thứ tự | Khu vực | Nội dung |
+|:---:|---|---|
+| 1 | Đầu | Tiêu đề và thời gian còn lại |
+| 2 | Điểm số | Đất, phạt, điểm của hai người chơi |
+| 3 | Bản đồ | Khung và các ô |
+| 4 | Trạng thái | Thông báo sự kiện gần nhất; đang chơi hoặc kết quả thắng/thua/hòa |
+| 5 | Chân trang | Hướng dẫn điều khiển và chú thích ký hiệu |
+
+| Ký hiệu | Ý nghĩa |
+|:---:|---|
+| `1` / `2` | Người chơi P1 / P2 |
+| `O` / `X` | Đất của P1 / P2 |
+| `o` / `x` | Vệt đường của P1 / P2 |
+| `@` | Bom |
+| `+` | Phình lãnh địa |
+| `.` | Ô trống |
