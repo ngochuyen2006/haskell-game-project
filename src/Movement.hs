@@ -2,28 +2,21 @@ module Movement where
 import Types
 import System.IO
 import Data.Char(toLower) --chữ thường
-
+import Trail (isInTrail)
 --các phép nhập tương ứng hướng di chuyển
 --nhập vào thì phải đổi hết thành chữ thường
-keyToDir :: IO (Maybe Direction)
-keyToDir = do
-    key <- getChar
+keyToDir :: Char -> Maybe Direction
+keyToDir key =
     case toLower key of
         'w' -> Just MUp
         's' -> Just MDown
         'a' -> Just MLeft
         'd' -> Just MRight
-        '\ESC' -> readArrow
+        'i' -> Just MUp
+        'j' -> Just MLeft
+        'l' -> Just MRight
+        'k' -> Just MDown
         _ -> Nothing
-
-readArrow :: IO (Maybe Direction)
-readArrow = do
-    bracket <- getChar
-    if bracket /= '['
-        then return Nothing
-        else do
-            arrow <- getChar
-            case arrow of 
 
 
 --nhận vào vị trí hiện tại trả về hàm nhận hướng đi làm đầu vào trả về hàm nhận kích thước bản đồ và trả về vị trí hiện tại
@@ -38,6 +31,18 @@ movePlayer (x,y) dir (width, height) =
         if nx >= 0 && nx < width && ny >=0 && ny < height -- kiểm tra vượt biên lần lượt là biên trái, phải, trên, dưới
         then (nx,ny) -- không vượt thì trả về (nx,ny)
         else (x,y) -- vượt thì đứng yên tại tọa độ vị trí cũ.
+
+-- nhận vào vị trí hiện tại của người chơi, nhận vào danh sách đường đang đi của đối thủ và trả về xem có va chạm không
+--trong main sẽ gọi ra để coi có phạt không
+collisions :: Position -> [Position] -> Bool
+collision target trail = chưa có
+    case trail of  
+        [] -> False-- nếu vị trí hiện tại chưa có ( bắt dàu game) thi trả false
+        (x:xs) -> if target == x then True else collision target xs
+-- trả về true false
+
+
+
 
 main :: IO ()
 main = do

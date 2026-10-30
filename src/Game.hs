@@ -17,12 +17,12 @@ module Game
   , isFinished
   ) where
 
-import Data.List (find, foldl')
+import Data.List (find, foldl', sortOn)
 import qualified Data.Vector as V
 
 import Items
 import Map
-import Movement (movePlayer)
+import Movement (movePlayer, collisions)
 import Player
 import Territory (calculateTerritorySize, claimTerritory)
 import Trail (isInTrail)
@@ -179,13 +179,33 @@ initGame cfg = GameState
    4. Ngược lại                -> bước đi; về lại đất nhà thì khép vòng và chiếm đất;
                                   đứng lên vật phẩm thì kích hoạt vật phẩm.
 -}
+--Nếu chạm vào trail thì bị phạt mất nửa đất
+halfterritorypunish :: PlayerId -> Positon -> GameState -> GameState
+--victim là người chơi chịu mất mát
+--hitPos là tọa độ xảy ra va chạm collision
+halfterritorypunish victim hitPos gs =  setLandCells victim Empty cellsToLose gs
+--
+where 
+  (hx,hy) = hitPos
+  victimCells = filter(\pos -> LandAt victim pos gs) (allCells (gsConfig gs))
+    --lấy tọa độ đất của người bị phạt
+  numberToClose = length victimCells `div` 2
+  -- số phần đất của nạn nhân bị mất đó chia nửa.
+  cellsToLose = take numberToLose (sortOn distanceToHit victimCells)
+  -- tính khoảng cách từ một ô đất tới vị trí chạm và xếp nó vào danh sashc dựa trên keestq ủa này
+  -- xong thì lấy được danh sách các ô cần phải bị xóa do phạt.
+  distanceToHit (x,y) = abs (x-hx) + abs(y-hy)
+  -- tính khoảng cách từ các điểm gần nhất tới điểm va chạm theo Manhattan
+
+
 applyMove :: PlayerId -> Direction -> GameState -> GameState
 applyMove pid dir gs
   | isFinished gs                    = gs
   | target == playerPos me           = penalize EvOutOfBounds    -- movePlayer trả về chỗ cũ <=> ra ngoài biên
-  | target == playerPos foe          = touch
-  | isInTrail target (playerTrail me)
-    || isInTrail target (playerTrail foe) = penalize EvHitTrail
+  | target == playerPos foe          = settle (advance pid target ps) -- đứng cùng một ô thì không ai bị phạt cả
+    --mình đụng trail đối thủ thì đối thủ bị trừ nửa đất
+    -- không phải thì game cứ tiếp tục
+  |isInTrail target (playerTrail foe) = halfterritorypunish (opponent pid) target gs
   | otherwise                        = settle (advance pid target gs)
   where
     cfg    = gsConfig gs
@@ -194,12 +214,7 @@ applyMove pid dir gs
     target = movePlayer (playerPos me) dir (cfgWidth cfg, cfgHeight cfg)
 
     penalize ev = (putPlayer (addPenalty (cfgPenalty cfg) me) gs) { gsEvent = Just (ev pid) }
-
-    touch
-      | landAt pid (playerPos foe) gs =
-          gs { gsStatus = Finished (Win pid Touched), gsEvent = Nothing }
-      | otherwise = gs { gsEvent = Just (EvBlocked pid) }
-
+    
     -- Chỉ nhặt vật phẩm nếu ván chưa kết thúc.
     settle g | isFinished g = g
              | otherwise    = pickUp pid g
