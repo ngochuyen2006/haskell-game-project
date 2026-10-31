@@ -17,12 +17,12 @@ module Game
   , isFinished
   ) where
 
-import Data.List (find, foldl', sortOn)
+import Data.List (find, foldl')
 import qualified Data.Vector as V
 
 import Items
 import Map
-import Movement (movePlayer, collisions)
+import Movement (movePlayer)
 import Player
 import Territory (calculateTerritorySize, claimTerritory)
 import Trail (isInTrail)
@@ -71,7 +71,7 @@ data Status = Playing | Finished Outcome
 data Event
   = EvOutOfBounds PlayerId     -- đi ra ngoài biên
   | EvHitTrail PlayerId        -- đụng vệt đường
-  | EvTrailCut PlayerId Int         -- bị cắt lãnh thổ do bị tấn công
+  | EvBlocked PlayerId         -- chạm đối thủ đang đứng trong đất của họ: bị chặn lại
   | EvClaimed PlayerId Int     -- khép vòng, chiếm thêm n ô
   | EvBomb PlayerId Int        -- đạp bom, mất n ô đất
   | EvExpand PlayerId Int      -- nhặt phình lãnh địa, thêm n ô đất
@@ -178,45 +178,16 @@ initGame cfg = GameState
    4. Ngược lại                -> bước đi; về lại đất nhà thì khép vòng và chiếm đất;
                                   đứng lên vật phẩm thì kích hoạt vật phẩm.
 -}
---Nếu chạm vào trail thì bị phạt mất nửa đất
-halfterritorypunish :: PlayerId -> Position -> GameState -> GameState
---victim là người chơi chịu mất mát
---hitPos là tọa độ xảy ra va chạm collision
-halfterritorypunish victim hitPos gs =  
-  let gs1 = setLandCells victim Empty cellsToLose gs
-      victimePlayer = getPlayer victim gs1
-      victimPlayer =  extendTrail (playerPos victimPlayer) (resetTrail victimPlayer)
-      gs2 = putPlayer (resetTrail victimPlayer) gs1
-  in gs2
-
-  where 
-      (hx,hy) = hitPos
-      victimCells = filter(\pos -> landAt victim pos gs) (allCells (gsConfig gs))
-        --lấy tọa độ đất của người bị phạt
-      numberToClose = length victimCells `div` 2
-      -- số phần đất của nạn nhân bị mất đó chia nửa.
-      cellsToLose = take numberToClose (sortOn distanceToHit victimCells)
-      -- tính khoảng cách từ một ô đất tới vị trí chạm và xếp nó vào danh sashc dựa trên keestq ủa này
-      -- xong thì lấy được danh sách các ô cần phải bị xóa do phạt.
-      distanceToHit (x,y) = abs (x-hx) + abs(y-hy)
-      -- tính khoảng cách từ các điểm gần nhất tới điểm va chạm theo Manhattan
-
-
 applyMove :: PlayerId -> Direction -> GameState -> GameState
 applyMove pid dir gs
   | isFinished gs                    = gs
   | target == playerPos me           = penalize EvOutOfBounds    -- movePlayer trả về chỗ cũ <=> ra ngoài biên
-    --mình đụng trail đối thủ thì đối thủ bị trừ nửa đất
-    -- không phải thì game cứ tiếp tục
-  |target == playerPos foe = settle (advance pid target gs)
-  |collisions target (playerTrail foe) = 
-              let victim = opponent pid
-                  before = territorySize victim gs
-                  gs1 = halfterritorypunish victim target gs
-                  gs2 = advance pid target gs1
-                  gs3 = settle gs2
-                  lost = before - territorySize victim gs3
-              in gs3 {gsEvent = Just(EveTrailCut victim lost)}
+  | target == playerPos foe          =
+      if landAt pid target gs
+        then gs { gsStatus = Finished (Win pid Touched), gsEvent = Nothing }  -- chủ đất chạm kẻ xâm nhập: thắng ngay
+        else gs { gsEvent = Just (EvBlocked pid) }                            -- kẻ xâm nhập chạm chủ đất: bị chặn lại
+  | isInTrail target (playerTrail me)  = penalize EvHitTrail   -- đụng vệt của chính mình
+  | isInTrail target (playerTrail foe) = penalize EvHitTrail   -- đụng vệt của đối thủ
   | otherwise                        = settle (advance pid target gs)
   where
     cfg    = gsConfig gs
