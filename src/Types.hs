@@ -4,8 +4,9 @@ module Types where
 data Direction = MUp | MDown | MLeft | MRight 
     deriving (Eq, Show)
 --kiểu vị trí được định nghĩa gồm (hàng, cột)
--- vị trí hiện tại 
-type Position = (Int, Int)
+-- vị trí hiện tại như vậy dễ truy cập vào tọa độ
+data Position = Position
+    { posX :: Int, posY :: Int} deriving (Eq, Ord, Show)
 
 --một danh sách các vị trí (Position)
-type Trail = [Position]
+data Trail = Trail [Position] deriving (Eq, Show)

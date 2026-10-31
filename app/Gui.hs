@@ -19,7 +19,7 @@ import qualified Game as G
 import Input (Action(..), parseKey)
 import Items
 import Player
-import Types
+import Types 
 
 {- ===================== TRẠNG THÁI CỦA CỬA SỔ ===================== -}
 
@@ -35,7 +35,7 @@ data World = World
 {- ===================== KÍCH THƯỚC ===================== -}
 
 cell :: Float
-cell = 32
+cell = 27
 
 winW, winH :: Int
 winW = 1000
@@ -47,7 +47,7 @@ boardLeft cfg = negate (fromIntegral (cfgWidth cfg) * cell / 2)
 boardTop _    = 190
 
 cellCenter :: Config -> Position -> (Float, Float)
-cellCenter cfg (x, y) =
+cellCenter cfg (Position x y) =
   ( boardLeft cfg + (fromIntegral x + 0.5) * cell
   , boardTop cfg  - (fromIntegral y + 0.5) * cell )
 
@@ -202,11 +202,16 @@ hud gs = pictures
 board :: GameState -> Picture
 board gs = pictures $
      [ translate cx cy (color (makeColor 0.3 0.32 0.38 1) (rectangleWire (bw + 6) (bh + 6))) ]
-  ++ [ square (x, y) emptyColor (cell - 2) | x <- [0 .. w - 1], y <- [0 .. h - 1] ]
-  ++ [ square (x, y) (landColor pid) cell
-     | pid <- [P1, P2], x <- [0 .. w - 1], y <- [0 .. h - 1], landAt pid (x, y) gs ]
+  ++ [ square (Position x y) emptyColor (cell - 2) | x <- [0 .. w - 1], y <- [0 .. h - 1] ]
+  ++ [ square (Position x y) (landColor pid) cell| pid <- [P1, P2], x <- [0 .. w - 1]
+    , y <- [0 .. h - 1]
+    , landAt pid (Position x y) gs
+    ]
   ++ [ square pos (playerColor pid) (cell - 10)
-     | pid <- [P1, P2], pos <- playerTrail (getPlayer pid gs) ]
+    | pid <- [P1, P2]
+    , Trail positions <- [playerTrail (getPlayer pid gs)]
+    , pos <- positions
+    ]
   ++ map drawItem (gsItems gs)
   ++ [ drawPlayer pid | pid <- [P1, P2] ]
   where
@@ -256,7 +261,7 @@ describeEvent :: GameState -> G.Event -> String
 describeEvent gs ev = case ev of
   EvOutOfBounds p -> show p ++ " di ra ngoai bien: dung yen, -" ++ pen ++ " diem"
   EvHitTrail p    -> show p ++ " dung vet duong: dung yen, -" ++ pen ++ " diem"
-  EvBlocked p     -> show p ++ " cham doi thu: bi chan lai"
+  EvBlocked p n   -> show p ++ " bi mat" ++ show n ++ "o dat."
   EvClaimed p n   -> show p ++ " khep vong, chiem them " ++ show n ++ " o"
   EvBomb p n      -> show p ++ " dap trung bom: mat " ++ show n ++ " o dat"
   EvExpand p n    -> show p ++ " nhat phinh lanh dia: them " ++ show n ++ " o dat"

@@ -39,7 +39,7 @@ newMap w h = GameMap w h (V.generate (w * h) initCell)
 
 --check xem 1 tọa độ bất kỳ có nằm trong biên bản đồ hay k
 inBounds :: Position -> GameMap -> Bool
-inBounds (x, y) (GameMap w h _) = 
+inBounds (Position x y) (GameMap w h _) = 
   x >= 0 && x < w && y >= 0 && y < h
 
 {-hàm này chỉ đọc thôi, như là biết trạng thái ô đang có gì,
@@ -48,16 +48,16 @@ dùng maybe trả về just để k bị crash nếu tọa độ lỗi
 -}
 getTile :: Position -> GameMap -> Maybe Tile
 --gắn lại tên sau khi phân rã để ném vào inBounds, dùng @
-getTile (x, y) gameMap@(GameMap w h g)
+getTile pos@(Position x y) gameMap@(GameMap w h g)
   --(y * w + x) là đang ở 2 chiều, truy về 1 chiều (đang ở idx mấy)
-  | inBounds (x, y) gameMap = Just (g V.! (y * w + x))
+  | inBounds pos gameMap = Just (g V.! (y * w + x))
   | otherwise = Nothing
 
 --cập nhật trạng thái một ô trên bản đồ (thay đổi từ hành động của người chơi)
 setTile :: Position -> Tile -> GameMap -> GameMap
 --newTile là ô mang gtri mới
-setTile (x, y) newTile gameMap@(GameMap w h g)
-  | not (inBounds (x, y) gameMap) = gameMap
+setTile pos@(Position x y) newTile gameMap@(GameMap w h g)
+  | not (inBounds pos gameMap) = gameMap
   --phải trả về gameMap vì nếu đã k có trong map rồi mà còn cố đi tìm trong vector nữa thì crash
   | otherwise = GameMap w h (g V.// [(y * w + x, newTile)])
 
@@ -77,10 +77,10 @@ với nhau thành một chuỗi duy nhất, cách nhau bởi ký tự xuống d�
   where
     --vẽ từng hàng y
     --getCharForCell được gọi tại mỗi ô tọa độ để quyết định xem ô đó nên là ký tự gì
-    renderRow y = [ getCharForCell (x, y) | x <- [0 .. w - 1] ]
+    renderRow y = [ getCharForCell (Position x y) | x <- [0 .. w - 1] ]
     
     --xác định ký tự tại mỗi ô tọa độ
-    getCharForCell pos@(x, y)
+    getCharForCell pos@(Position x y)
       | pos == playerPos = 'P' --vị trí người chơi
       | otherwise = case getTile pos (GameMap w h g) of
           Just Wall -> '#'

@@ -12,16 +12,18 @@ flag gui
 library
   hs-source-dirs: src
   exposed-modules: Types
-                 , Map
-                 , Movement
-                 , Player
-                 , Input
-                 , Trail
-                 , Territory
-                 , Items
-                 , Game
-                 , UI
-                 , GameLoop
+                  , Map
+                  , Movement
+                  , Player
+                  , Input
+                  , Trail
+                  , Territory
+                  , Items
+                  , Game
+                  , UI
+                  , GameLoop
+  other-modules:
+                Collision
   build-depends: base >= 4.7 && < 5, vector, containers
   default-language: Haskell2010
 
@@ -29,15 +31,16 @@ executable my-game-project-exe
   hs-source-dirs: app
   main-is: Main.hs
   build-depends: base >= 4.7 && < 5
-               , my-game-project
+                , my-game-project
+                , megaparsec
   default-language: Haskell2010
 
 executable my-game-project-gui
   hs-source-dirs: app
   main-is: Gui.hs
   build-depends: base >= 4.7 && < 5
-               , my-game-project
-               , gloss
+                , my-game-project
+                , gloss
   default-language: Haskell2010
   ghc-options: -threaded
   if !flag(gui)

@@ -2,7 +2,7 @@
 ##  GHI CHÚ VỀ DỰ ÁN (PROJECT NOTES)
 
 ### 1. Phiên bản & Môi trường sử dụng
-* **Stack Resolver**: `lts-24.62` (khai báo trong `stack.yaml`)
+* **Stack Resolver**: `lts-22.39` (khai báo trong `stack.yaml`)
 * **GHC / GHCI Version**: `9.6.x` (xem chi tiết bằng lệnh `stack ghci --version`)
 
 ---

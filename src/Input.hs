@@ -9,7 +9,7 @@ module Input
 import Control.Exception (IOException, bracket, try)
 import Data.Char (toLower)
 import System.IO
-import System.IO.Error (isEOFError)
+import System.IO.Error (isEOFError ,isIllegalOperation)
 
 import Movement (keyToDir)
 import Player (PlayerId(..))
@@ -41,7 +41,11 @@ parseKey c
 ignoreIO :: IO () -> IO ()
 ignoreIO act = do
   r <- try act :: IO (Either IOException ())
-  either (const (return ())) return r
+  case r of
+    Right () -> return ()
+    Left e
+      | isIllegalOperation e -> return ()
+      | otherwise            -> ioError e
 
 -- Đọc đúng 1 phím, không cần Enter và không hiện phím ra màn hình.
 readKey :: IO Char
@@ -74,10 +78,17 @@ readKeyTimeout ms = do
     drainPending = do
       more <- try (hWaitForInput stdin 10) :: IO (Either IOException Bool)
       case more of
+        Left e
+          | isEOFError e -> return ()
+          | otherwise    -> ioError e
+        Right False -> return ()
         Right True -> do
-          _ <- try getChar :: IO (Either IOException Char)
-          drainPending
-        _ -> return ()
+          r <- try getChar :: IO (Either IOException Char)
+          case r of
+            Left e
+              | isEOFError e -> return ()
+              | otherwise    -> ioError e
+            Right _ -> drainPending
 
 -- Bật chế độ đọc phím tức thời (không buffer, không echo) và luôn khôi phục khi kết thúc.
 withRawInput :: IO a -> IO a
@@ -86,7 +97,12 @@ withRawInput action = bracket save restore (const (setRaw >> action))
     save = do
       b <- hGetBuffering stdin
       e <- try (hGetEcho stdin) :: IO (Either IOException Bool)
-      return (b, either (const True) id e)
+      echo <- case e of
+        Right value -> return value
+        Left err
+          | isIllegalOperation err -> return True
+          | otherwise              -> ioError err
+      return (b, echo)
     restore (b, e) = do
       hSetBuffering stdin b
       ignoreIO (hSetEcho stdin e)

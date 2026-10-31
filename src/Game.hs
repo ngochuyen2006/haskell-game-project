@@ -1,6 +1,7 @@
 module Game
   ( Config(..)
   , defaultConfig
+  ,validateConfig
   , Status(..)
   , Outcome(..)
   , EndReason(..)
@@ -17,18 +18,22 @@ module Game
   , isFinished
   ) where
 
+
 import Data.List (find, foldl')
 import qualified Data.Vector as V
-
+import qualified Data.Set as S
 import Items
 import Map
 import Movement (movePlayer)
+import Collision (collisions, cellsToClose)
 import Player
 import Territory (calculateTerritorySize, claimTerritory)
 import Trail (isInTrail)
 import Types
 
-{- ===================== CẤU HÌNH ===================== -}
+
+--CẤU HÌNH
+
 
 -- Mọi con số "dự kiến" của luật chơi gom về đây để chỉnh sau khi chơi thử.
 data Config = Config
@@ -43,12 +48,13 @@ data Config = Config
   , cfgSeed       :: Int      -- seed cho bộ sinh số ngẫu nhiên
   } deriving (Show, Eq)
 
+
 defaultConfig :: Config
 defaultConfig = Config
-  { cfgWidth      = 30
-  , cfgHeight     = 16
+  { cfgWidth      = 34
+  , cfgHeight     = 18
   , cfgDuration   = 60
-  , cfgSpawnEvery = 3
+  , cfgSpawnEvery = 5
   , cfgMaxBombs   = 3
   , cfgMaxExpand  = 3
   , cfgBombLife   = 10
@@ -56,26 +62,53 @@ defaultConfig = Config
   , cfgSeed       = 2026
   }
 
-{- ===================== TRẠNG THÁI ===================== -}
+-- Kiểm tra cấu hình game trước khi khởi tạo.
+validateConfig :: Config -> Either String ()
+validateConfig cfg
+  | cfgWidth cfg < 10 = 
+    Left "Chieu rong ban do phai tu 10 tro len."
+  | cfgHeight cfg < 3 =
+      Left "Chieu cao ban do phai tu 3 tro len."
+  | not (positiveFinite (cfgDuration cfg)) =
+      Left "Thoi gian game phai la so duong hop le."
+  | not (positiveFinite (cfgSpawnEvery cfg)) =
+      Left "Thoi gian sinh vat pham phai la so duong hop le."
+  | not (positiveFinite (cfgBombLife cfg)) =
+      Left "Thoi gian ton tai cua bom phai la so duong hop le."
+  | cfgMaxBombs cfg < 0 =
+      Left "So luong bom toi da khong duoc am."
+  | cfgMaxExpand cfg < 0 =
+      Left "So luong Expand toi da khong duoc am."
+  | cfgPenalty cfg < 0 =
+      Left "Diem phat khong duoc am."
+  | otherwise = Right ()
+  where
+    positiveFinite n = n > 0 && not (isNaN n || isInfinite n)
+--TRẠNG THÁI
+
 
 data EndReason = TimeUp | Surrounded | Touched
   deriving (Show, Eq)
 
+
 data Outcome = Win PlayerId EndReason | Draw
   deriving (Show, Eq)
 
+
 data Status = Playing | Finished Outcome
   deriving (Show, Eq)
+
 
 -- Sự kiện gần nhất, để UI hiển thị thông báo (logic không chứa chữ hiển thị).
 data Event
   = EvOutOfBounds PlayerId     -- đi ra ngoài biên
   | EvHitTrail PlayerId        -- đụng vệt đường
-  | EvBlocked PlayerId         -- chạm đối thủ đang đứng trong đất của họ: bị chặn lại
+  | EvBlocked PlayerId Int -- chạm đối thủ đang đứng trong đất của họ: bị chặn lại
   | EvClaimed PlayerId Int     -- khép vòng, chiếm thêm n ô
   | EvBomb PlayerId Int        -- đạp bom, mất n ô đất
   | EvExpand PlayerId Int      -- nhặt phình lãnh địa, thêm n ô đất
   deriving (Show, Eq)
+
 
 {- Mỗi người có MỘT LỚP bản đồ riêng (gsLand1/gsLand2) chỉ chứa Empty/Territory:
    ô Territory ở lớp nào thì thuộc về người đó. Cách này cho phép dùng nguyên
@@ -97,54 +130,77 @@ data GameState = GameState
   , gsEvent      :: Maybe Event
   } deriving (Show, Eq)
 
-{- ===================== TRUY CẬP ===================== -}
+
+--TRUY CẬP
+
 
 getPlayer :: PlayerId -> GameState -> Player
 getPlayer P1 = gsPlayer1
 getPlayer P2 = gsPlayer2
+
 
 putPlayer :: Player -> GameState -> GameState
 putPlayer p gs = case playerId p of
   P1 -> gs { gsPlayer1 = p }
   P2 -> gs { gsPlayer2 = p }
 
+
 landOf :: PlayerId -> GameState -> GameMap
 landOf P1 = gsLand1
 landOf P2 = gsLand2
+
 
 putLand :: PlayerId -> GameMap -> GameState -> GameState
 putLand P1 m gs = gs { gsLand1 = m }
 putLand P2 m gs = gs { gsLand2 = m }
 
+
 -- Ô này có phải đất của người chơi đó không?
 landAt :: PlayerId -> Position -> GameState -> Bool
 landAt pid pos gs = getTile pos (landOf pid gs) == Just Territory
+
 
 -- Đặt một loại ô cho nhiều vị trí ở lớp đất của một người (vị trí ngoài biên tự bị bỏ qua).
 setLandCells :: PlayerId -> Tile -> [Position] -> GameState -> GameState
 setLandCells pid tile ps gs = putLand pid (paint tile ps (landOf pid gs)) gs
 
+
 paint :: Tile -> [Position] -> GameMap -> GameMap
 paint tile ps m = foldl' (\acc p -> setTile p tile acc) m ps
 
+
 -- Vùng 3x3 quanh một ô.
 square :: Position -> [Position]
-square (x, y) = [ (x + dx, y + dy) | dy <- [-1 .. 1], dx <- [-1 .. 1] ]
+square (Position x y) =
+    [ Position (x + dx) (y + dy)
+    | dy <- [-1 .. 1]
+    , dx <- [-1 .. 1]
+    ]
+
 
 territorySize :: PlayerId -> GameState -> Int
 territorySize pid gs = calculateTerritorySize (landOf pid gs)
+
 
 -- Điểm = số ô đất - điểm bị phạt.
 scoreOf :: PlayerId -> GameState -> Int
 scoreOf pid gs = territorySize pid gs - playerPenalty (getPlayer pid gs)
 
+
 isFinished :: GameState -> Bool
 isFinished gs = gsStatus gs /= Playing
 
-allCells :: Config -> [Position]
-allCells cfg = [ (x, y) | y <- [0 .. cfgHeight cfg - 1], x <- [0 .. cfgWidth cfg - 1] ]
 
-{- ===================== KHỞI TẠO ===================== -}
+allCells :: Config -> [Position]
+allCells cfg =
+    [ Position x y
+    | y <- [0 .. cfgHeight cfg - 1]
+    , x <- [0 .. cfgWidth cfg - 1]
+    ]
+
+
+--KHỞI TẠO
+
 
 -- P1 bắt đầu ở bên trái, P2 ở bên phải, mỗi người có mảnh đất 3x3.
 initGame :: Config -> GameState
@@ -164,11 +220,13 @@ initGame cfg = GameState
   where
     w = cfgWidth cfg
     h = cfgHeight cfg
-    s1 = (3, h `div` 2)
-    s2 = (w - 4, h `div` 2)
+    s1 = Position 3 (h `div` 2)
+    s2 = Position (w - 4) (h `div` 2)
     blank = GameMap w h (V.replicate (w * h) Empty)
 
-{- ===================== DI CHUYỂN ===================== -}
+
+--DI CHUYỂN
+
 
 {- Một lần bấm phím = người `pid` đi một ô theo hướng `dir`.
    Thứ tự kiểm tra:
@@ -178,33 +236,62 @@ initGame cfg = GameState
    4. Ngược lại                -> bước đi; về lại đất nhà thì khép vòng và chiếm đất;
                                   đứng lên vật phẩm thì kích hoạt vật phẩm.
 -}
+--Nếu chạm vào trail thì bị phạt mất nửa đất
+-- Nếu chạm vào trail thì người sở hữu trail bị mất một nửa đất.
+halfterritorypunish :: PlayerId -> Position -> GameState -> GameState
+halfterritorypunish victim hitPos gs =
+    let
+        -- Lấy toàn bộ ô đất hiện tại của người bị phạt.
+        victimCells = filter (\pos -> landAt victim pos gs) (allCells (gsConfig gs))
+        -- Chọn những ô cần xóa.
+        cellsToRemove = cellsToClose hitPos victimCells
+        -- Xóa đất.
+        gs1 = setLandCells victim Empty cellsToRemove gs
+        -- Xác định vị trí mới tại ô cuối cùng bị xóa.
+        oldPlayer = getPlayer victim gs1
+        resetPos = case reverse cellsToRemove of
+                (pos : _) -> pos
+                []        -> playerPos oldPlayer
+        -- Đưa người chơi về vị trí mới và xóa trail cũ.
+        resetPlayer =setPlayerPos resetPos (resetTrail oldPlayer)
+        -- Bắt đầu trail mới tại vị trí vừa được đưa đến.
+        newPlayer = extendTrail resetPos resetPlayer
+    in
+        putPlayer newPlayer gs1
+
+
 applyMove :: PlayerId -> Direction -> GameState -> GameState
 applyMove pid dir gs
-  | isFinished gs                    = gs
-  | target == playerPos me           = penalize EvOutOfBounds    -- movePlayer trả về chỗ cũ <=> ra ngoài biên
-  | target == playerPos foe          =
-      if landAt pid target gs
-        then gs { gsStatus = Finished (Win pid Touched), gsEvent = Nothing }  -- chủ đất chạm kẻ xâm nhập: thắng ngay
-        else gs { gsEvent = Just (EvBlocked pid) }                            -- kẻ xâm nhập chạm chủ đất: bị chặn lại
-  | isInTrail target (playerTrail me)  = penalize EvHitTrail   -- đụng vệt của chính mình
-  | isInTrail target (playerTrail foe) = penalize EvHitTrail   -- đụng vệt của đối thủ
-  | otherwise                        = settle (advance pid target gs)
+  | isFinished gs = gs
+  | target == playerPos me  = penalize EvOutOfBounds    -- movePlayer trả về chỗ cũ <=> ra ngoài biên
+    --mình đụng trail đối thủ thì đối thủ bị trừ nửa đất
+      -- không phải thì game cứ tiếp tục
+  | target == playerPos foe  = settle (advance pid target gs)
+  | collisions target (playerTrail foe) =
+      let victim = opponent pid
+          before = territorySize victim gs
+          gs1 = halfterritorypunish victim target gs
+          lost = before - territorySize victim gs1
+      in gs1 {gsEvent = Just(EvBlocked victim lost)}
+  | otherwise = settle (advance pid target gs)
   where
     cfg    = gsConfig gs
     me     = getPlayer pid gs
     foe    = getPlayer (opponent pid) gs
     target = movePlayer (playerPos me) dir (cfgWidth cfg, cfgHeight cfg)
 
+
     penalize ev = (putPlayer (addPenalty (cfgPenalty cfg) me) gs) { gsEvent = Just (ev pid) }
-    
+   
     -- Chỉ nhặt vật phẩm nếu ván chưa kết thúc.
     settle g | isFinished g = g
              | otherwise    = pickUp pid g
 
+
 -- Người chơi bước tới ô `target`: cập nhật vị trí, vệt đường, và khép vòng nếu về lại đất nhà.
 advance :: PlayerId -> Position -> GameState -> GameState
 advance pid target gs
-  | onHome && not (null (playerTrail me)) = closeLoop pid moved
+  | onHome && playerTrail me /= Trail [] = closeLoop pid moved
   | otherwise                             = moved
   where
     me     = getPlayer pid gs
@@ -212,6 +299,7 @@ advance pid target gs
     me'    | onHome    = setPlayerPos target me
            | otherwise = extendTrail target (setPlayerPos target me)
     moved  = (putPlayer me' gs) { gsEvent = Nothing }
+
 
 {- Khép vòng: các ô trống bị bao kín và các ô của vệt đường trở thành đất của `pid`;
    phần đất của đối thủ nằm trong vùng đó bị lấy đi. Nếu ô đối thủ đang đứng bị chiếm
@@ -233,13 +321,16 @@ closeLoop pid gs
     foePos  = playerPos (getPlayer foeId gs3)
     trapped = landAt pid foePos gs3 && getTile foePos oldLand /= Just Territory
 
+
 -- Lấy khỏi `victim` mọi ô mà `taker` vừa chiếm (giữ bất biến: một ô chỉ thuộc một người).
 takeLand :: PlayerId -> PlayerId -> GameState -> GameState
 takeLand victim taker gs = setLandCells victim Empty stolen gs
   where
     stolen = [ p | p <- allCells (gsConfig gs), landAt taker p gs, landAt victim p gs ]
 
-{- ===================== VẬT PHẨM ===================== -}
+
+--VẬT PHẨM
+
 
 pickUp :: PlayerId -> GameState -> GameState
 pickUp pid gs =
@@ -253,22 +344,182 @@ pickUp pid gs =
   where
     pos = playerPos (getPlayer pid gs)
 
--- Đạp bom: mất đất của mình trong vùng 3x3 quanh bom.
-explode :: PlayerId -> Position -> GameState -> GameState
-explode pid pos gs = (putPlayer me' gs1) { gsEvent = Just (EvBomb pid lost) }
-  where
-    before = territorySize pid gs
-    gs1    = setLandCells pid Empty (square pos) gs
-    lost   = before - territorySize pid gs1
-    me     = getPlayer pid gs1
-    -- Nếu ô đang đứng không còn là đất nhà thì bắt đầu vệt đường từ chính ô này.
-    me' | not (landAt pid pos gs1) && null (playerTrail me) = extendTrail pos me
-        | otherwise                                         = me
 
--- Phình lãnh địa: vùng 3x3 quanh vị trí nhặt thành đất của mình (lấy luôn đất đối thủ trong vùng đó).
+-- Đạp bom: phá hủy lãnh địa trong vùng 3x3 quanh bom.
+-- Nếu Trail bị phá hủy hoặc mất kết nối, tìm đường nối mới bằng BFS.
+explode :: PlayerId -> Position -> GameState -> GameState
+explode pid pos gs =
+    let
+        blast = square pos
+
+
+        -- Tổng số ô lãnh địa trước khi bom nổ.
+        before = territorySize pid gs
+
+
+        -- Chỉ xóa lãnh địa của người đạp bom.
+        gs1 = setLandCells pid Empty blast gs
+
+
+        -- Số ô lãnh địa thực tế bị phá hủy.
+        lost = before - territorySize pid gs1
+
+
+        me = getPlayer pid gs1
+
+
+        -- Danh sách Trail: vị trí mới nhất nằm ở đầu.
+        oldTrail = trailPositions (playerTrail me)
+
+
+        -- Kiểm tra bom có phá hủy ô Trail hay không.
+        trailHit = any (`elem` blast) oldTrail
+
+
+        -- Kiểm tra đầu Trail còn kết nối với lãnh địa không.
+        connected = trailTouchesLand pid gs1 oldTrail
+
+
+        -- Cần nối lại nếu Trail bị phá hủy hoặc mất kết nối.
+        needsReconnect =
+            if null oldTrail
+                then not (landAt pid (playerPos me) gs1)
+                else trailHit || not connected
+
+
+        -- Tìm đường nối lại.
+        me' =
+            if needsReconnect
+                then case reconnectPath pid gs1 (playerPos me) of
+                    Just path -> me { playerTrail = Trail path }
+                    Nothing   -> me { playerTrail = Trail [] }
+                else me
+
+
+    in
+        (putPlayer me' gs1)
+            { gsEvent = Just (EvBomb pid lost) }
+
+
+
+
+-- Lấy danh sách vị trí của Trail.
+trailPositions :: Trail -> [Position]
+trailPositions (Trail positions) = positions
+
+
+
+
+-- Kiểm tra đầu Trail có tiếp giáp lãnh địa của người chơi không.
+trailTouchesLand :: PlayerId -> GameState -> [Position] -> Bool
+trailTouchesLand _ _ [] = False
+
+
+trailTouchesLand pid gs positions =
+    let
+        Position x y = last positions
+
+
+        adjacent =
+            [ Position (x + 1) y
+            , Position (x - 1) y
+            , Position x (y + 1)
+            , Position x (y - 1)
+            ]
+
+
+    in
+        any (\p -> landAt pid p gs) adjacent
+
+
+
+
+-- BFS tìm đường ngắn nhất từ vị trí người chơi
+-- đến một ô trống tiếp giáp lãnh địa của chính mình.
+reconnectPath :: PlayerId -> GameState -> Position -> Maybe [Position]
+reconnectPath pid gs start
+    | landAt pid start gs = Just []
+    | otherwise = bfs [([start], S.singleton start)]
+
+
+    where
+        cfg = gsConfig gs
+        w = cfgWidth cfg
+        h = cfgHeight cfg
+
+
+        ownLand = landOf pid gs
+        foeLand = landOf (opponent pid) gs
+
+
+        -- Các ô lân cận theo 4 hướng.
+        neighbors (Position x y) =
+            filter inBounds
+                [ Position (x + 1) y
+                , Position (x - 1) y
+                , Position x (y + 1)
+                , Position x (y - 1)
+                ]
+
+
+        inBounds (Position x y) =
+            x >= 0 && x < w && y >= 0 && y < h
+
+
+        -- Đích là ô trống tiếp giáp lãnh địa của người chơi.
+        isGoal p =
+            any
+                (\q -> getTile q ownLand == Just Territory)
+                (neighbors p)
+
+
+        -- Chỉ đi qua ô trống.
+        -- Không đi xuyên lãnh địa đối thủ.
+        canEnter p =
+            p == start ||
+            ( getTile p ownLand == Just Empty
+           && getTile p foeLand == Just Empty
+            )
+
+
+        -- BFS sử dụng hàng đợi FIFO.
+        bfs [] = Nothing
+
+
+        bfs ((path, visited) : queue)
+            | isGoal current = Just path
+
+
+            | otherwise =
+                let
+                    next =
+                        [ p
+                        | p <- neighbors current
+                        , p `S.notMember` visited
+                        , canEnter p
+                        ]
+
+
+                    visited' =
+                        foldr S.insert visited next
+
+
+                    queue' =
+                        queue ++
+                        [ (path ++ [p], visited')
+                        | p <- next
+                        ]
+
+
+                in
+                    bfs queue'
+
+
+            where
+                current = last path
 expand :: PlayerId -> Position -> GameState -> GameState
 expand pid pos gs
-  | null (playerTrail (getPlayer pid gs3)) = gs3
+  | playerTrail (getPlayer pid gs3) == Trail [] = gs3
   | isFinished closed                      = closed
   | otherwise = closed { gsEvent = Just (EvExpand pid (territorySize pid closed - before)) }
   where
@@ -279,7 +530,9 @@ expand pid pos gs
     -- Đang giữa vệt đường mà phình ra trúng đất nhà thì coi như khép vòng.
     closed = closeLoop pid gs3
 
-{- ===================== THỜI GIAN ===================== -}
+
+--THỜI GIAN
+
 
 {- Cho thời gian trôi dt giây: giảm đồng hồ, làm bom già đi (quá cfgBombLife thì biến mất),
    đến hạn thì sinh vật phẩm mới, hết giờ thì kết thúc ván và tính thắng/thua/hòa theo điểm.
@@ -299,6 +552,7 @@ tick dt0 gs
     left = gsTimeLeft gs - dt
     alive it = itemKind it /= Bomb || itemAge it < cfgBombLife cfg
 
+
 spawnDue :: GameState -> GameState
 spawnDue gs
   | every > 0 && gsSpawnTimer gs >= every =
@@ -306,9 +560,11 @@ spawnDue gs
   | otherwise = gs
   where every = cfgSpawnEvery (gsConfig gs)
 
+
 -- Mỗi lượt xuất hiện cùng lúc 1 bom và 1 phình lãnh địa; loại nào đã đủ số lượng tối đa thì bỏ qua.
 spawnRound :: GameState -> GameState
 spawnRound = spawnOne Expand . spawnOne Bomb
+
 
 spawnOne :: ItemKind -> GameState -> GameState
 spawnOne kind gs
@@ -324,6 +580,7 @@ spawnOne kind gs
               Expand -> cfgMaxExpand cfg
     blocked = playerPos (gsPlayer1 gs) : playerPos (gsPlayer2 gs) : map itemPos (gsItems gs)
 
+
 finishByTime :: GameState -> GameState
 finishByTime gs = gs { gsStatus = Finished outcome }
   where
@@ -332,3 +589,6 @@ finishByTime gs = gs { gsStatus = Finished outcome }
     outcome | s1 > s2   = Win P1 TimeUp
             | s2 > s1   = Win P2 TimeUp
             | otherwise = Draw
+
+
+

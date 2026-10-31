@@ -7,7 +7,7 @@ module Items
   , countKind
   ) where
 
-import Types (Position)
+import Types (Position(..))
 
 -- Bom: ai đạp vào sẽ mất một phần đất.  Expand: phình lãnh địa 3x3.
 data ItemKind = Bomb | Expand
@@ -35,7 +35,8 @@ randomFreeCell w h blocked = go (20 :: Int)
     go n s =
       let s1 = nextSeed s
           s2 = nextSeed s1
-          p  = ((s1 `div` 65536) `mod` max 1 w, (s2 `div` 65536) `mod` max 1 h)
+          p  = Position ((s1 `div` 65536) `mod` max 1 w)
+              ((s2 `div` 65536) `mod` max 1 h)
       in if p `elem` blocked then go (n - 1) s2 else (Just p, s2)
 
 -- Tăng tuổi của mọi vật phẩm thêm dt giây.

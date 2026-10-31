@@ -9,7 +9,7 @@ import Data.List (foldl')
 
 --hàm xử lý chiếm đất (khi người chơi đóng đường đi)
 claimTerritory :: Trail -> GameMap -> GameMap
-claimTerritory trail gameMap@(GameMap w h _) =
+claimTerritory (Trail trail) gameMap@(GameMap w h _) =
     let -- Chuyển trail sang Set để kiểm tra (`member`) nhanh hơn O(log n)
         trailSet = S.fromList trail
         
@@ -18,10 +18,10 @@ claimTerritory trail gameMap@(GameMap w h _) =
 
         -- Ô trống nằm bên trong vùng bao vây (Không thuộc outside và không nằm trên trail)
         enclosedPositions = 
-            [ (x, y) 
+            [ Position x y 
             | y <- [0 .. h - 1]
             , x <- [0 .. w - 1]
-            , let pos = (x, y)
+            , let pos = Position x y
             , getTile pos gameMap == Just Empty
             , not (pos `S.member` outsideCells)
             , not (pos `S.member` trailSet) 
@@ -39,8 +39,8 @@ findOutsideCells :: GameMap -> S.Set Position -> S.Set Position
 findOutsideCells gameMap trailSet = expandLayers initialQueue initialVisited
   where
     -- Lấy tất cả các ô ở mép biên ngoài cùng
-    allBorderNodes = [ (x, y) | x <- [0, w-1], y <- [0 .. h-1] ] 
-                  ++ [ (x, y) | x <- [0 .. w-1], y <- [0, h-1] ]
+    allBorderNodes = [ Position x y | x <- [0, w-1], y <- [0 .. h-1] ] 
+                  ++ [ Position x y | x <- [0 .. w-1], y <- [0, h-1] ]
     
     (GameMap w h _) = gameMap
 
@@ -70,9 +70,9 @@ findOutsideCells gameMap trailSet = expandLayers initialQueue initialVisited
 
 -- Lấy danh sách 4 ô lân cận nằm trong biên hợp lệ
 getNeighbors :: Position -> Int -> Int -> [Position]
-getNeighbors (x, y) w h = 
-    filter (\(nx, ny) -> nx >= 0 && nx < w && ny >= 0 && ny < h) 
-           [(x+1, y), (x-1, y), (x, y+1), (x, y-1)]
+getNeighbors (Position x y) w h = 
+    filter (\(Position nx ny )-> nx >= 0 && nx < w && ny >= 0 && ny < h)
+           [Position(x+1)  y, Position(x-1) y, Position x (y+1), Position x (y-1)]
 
 -- Tính tổng số ô lãnh thổ hiện tại để tính điểm số
 calculateTerritorySize :: GameMap -> Int

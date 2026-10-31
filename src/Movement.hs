@@ -20,36 +20,18 @@ keyToDir key =
 
 
 --nhận vào vị trí hiện tại trả về hàm nhận hướng đi làm đầu vào trả về hàm nhận kích thước bản đồ và trả về vị trí hiện tại
-movePlayer :: Position -> Direction -> (Int,Int) -> Position
-movePlayer (x,y) dir (width, height) = 
-    let (nx,ny) = case dir of 
-                    MUp -> (x,y -1)
-                    MDown -> (x,y+1)
-                    MLeft -> (x-1,y)
-                    MRight -> (x+1,y)
-    in 
-        if nx >= 0 && nx < width && ny >=0 && ny < height -- kiểm tra vượt biên lần lượt là biên trái, phải, trên, dưới
-        then (nx,ny) -- không vượt thì trả về (nx,ny)
-        else (x,y) -- vượt thì đứng yên tại tọa độ vị trí cũ.
-
--- nhận vào vị trí hiện tại của người chơi, nhận vào danh sách đường đang đi của đối thủ và trả về xem có va chạm không
---trong main sẽ gọi ra để coi có phạt không
-collisions :: Position -> [Position] -> Bool
-collisions target trail = isInTrail target trail
--- trả về true false
+movePlayer :: Position -> Direction -> (Int, Int) -> Position
+movePlayer (Position x y) dir (width, height) =
+    let (nx, ny) = case dir of
+                    MUp    -> (x, y - 1)
+                    MDown  -> (x, y + 1)
+                    MLeft  -> (x - 1, y)
+                    MRight -> (x + 1, y)
+    in
+        if nx >= 0 && nx < width && ny >= 0 && ny < height
+        then Position nx ny
+        else Position x y
 
 --mặc định người chơi mới vào game chưa bấm phím gì thì đi thăng lên luôn
 defaultmove :: Direction
 defaultmove = MUp
-
-main :: IO ()
-main = do
-    hSetBuffering stdin NoBuffering
-    hSetEcho stdin False
-
-    putStrLn "Nhan phim mui ten de kiem tra:"
-    c1 <- getChar
-    print (fromEnum c1)
-
-    hSetEcho stdin True
-    hSetBuffering stdin LineBuffering

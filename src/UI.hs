@@ -16,7 +16,7 @@ import System.IO (hFlush, stdout)
 import Game
 import Items
 import Player
-
+import Types (Position(..), Trail(..))
 {- UI chỉ ĐỌC GameState và trả về String: không chứa luật chơi, không đọc phím.
    Muốn đổi giao diện chỉ cần sửa file này.
 
@@ -57,12 +57,15 @@ renderBoard color gs = [border] ++ map row [0 .. h - 1] ++ [border]
     w      = cfgWidth cfg
     h      = cfgHeight cfg
     border = "+" ++ replicate (2 * w) '-' ++ "+"
-    row y  = "|" ++ concatMap (\x -> cell (x, y)) [0 .. w - 1] ++ "|"
+    row y = "|" ++ concatMap (\x -> cell (Position x y)) [0 .. w - 1] ++ "|"
 
     p1 = gsPlayer1 gs
     p2 = gsPlayer2 gs
-    trail1  = S.fromList (playerTrail p1)
-    trail2  = S.fromList (playerTrail p2)
+    trail1 = case playerTrail p1 of
+              Trail positions -> S.fromList positions
+
+    trail2 = case playerTrail p2 of
+              Trail positions -> S.fromList positions
     itemMap = [ (itemPos i, itemKind i) | i <- gsItems gs ]
 
     cell pos = let (c, col) = glyph pos in paintText color col [c] ++ " "
@@ -123,7 +126,7 @@ describeEvent :: GameState -> Event -> String
 describeEvent gs ev = case ev of
   EvOutOfBounds p -> show p ++ " đi ra ngoài biên: đứng yên, -" ++ pen ++ " điểm"
   EvHitTrail p    -> show p ++ " đụng vệt đường: đứng yên, -" ++ pen ++ " điểm"
-  EvBlocked p     -> show p ++ " chạm đối thủ: bị chặn lại"
+  EvBlocked p  n   -> show p ++ " chạm đối thủ: bị chặn lại"
   EvClaimed p n   -> show p ++ " khép vòng, chiếm thêm " ++ show n ++ " ô"
   EvBomb p n      -> show p ++ " đạp trúng bom: mất " ++ show n ++ " ô đất"
   EvExpand p n    -> show p ++ " nhặt phình lãnh địa: thêm " ++ show n ++ " ô đất"
