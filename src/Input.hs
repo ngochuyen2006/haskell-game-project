@@ -30,8 +30,8 @@ data Action
 parseKey :: Char -> Maybe Action
 parseKey c
   | k == 'q'                                    = Just Quit
-  | Just d <- keyToDir k                        = Just (Move P1 d)
   | Just k1 <- lookup k p2Keys, Just d <- keyToDir k1 = Just (Move P2 d)
+  | k `elem` "wasd", Just d <- keyToDir k       = Just (Move P1 d)
   | otherwise                                   = Nothing
   where
     k = toLower c
