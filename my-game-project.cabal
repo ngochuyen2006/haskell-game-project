@@ -4,6 +4,11 @@ version: 0.1.0.0
 build-type: Simple
 extra-source-files: README.md
 
+flag gui
+  description: Build the graphical (gloss) version. Disable with --flag my-game-project:-gui if gloss fails to install.
+  default: True
+  manual: True
+
 library
   hs-source-dirs: src
   exposed-modules: Types
@@ -26,6 +31,17 @@ executable my-game-project-exe
   build-depends: base >= 4.7 && < 5
                , my-game-project
   default-language: Haskell2010
+
+executable my-game-project-gui
+  hs-source-dirs: app
+  main-is: Gui.hs
+  build-depends: base >= 4.7 && < 5
+               , my-game-project
+               , gloss
+  default-language: Haskell2010
+  ghc-options: -threaded
+  if !flag(gui)
+    buildable: False
 
 test-suite my-game-project-test
   type: exitcode-stdio-1.0
