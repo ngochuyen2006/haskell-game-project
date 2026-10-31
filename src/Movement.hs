@@ -35,14 +35,12 @@ movePlayer (x,y) dir (width, height) =
 -- nhận vào vị trí hiện tại của người chơi, nhận vào danh sách đường đang đi của đối thủ và trả về xem có va chạm không
 --trong main sẽ gọi ra để coi có phạt không
 collisions :: Position -> [Position] -> Bool
-collision target trail = chưa có
-    case trail of  
-        [] -> False-- nếu vị trí hiện tại chưa có ( bắt dàu game) thi trả false
-        (x:xs) -> if target == x then True else collision target xs
+collisions target trail = isInTrail target trail
 -- trả về true false
 
-
-
+--mặc định người chơi mới vào game chưa bấm phím gì thì đi thăng lên luôn
+defaultmove :: Direction
+defaultmove = MUp
 
 main :: IO ()
 main = do

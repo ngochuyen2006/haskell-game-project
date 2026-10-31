@@ -71,7 +71,7 @@ data Status = Playing | Finished Outcome
 data Event
   = EvOutOfBounds PlayerId     -- đi ra ngoài biên
   | EvHitTrail PlayerId        -- đụng vệt đường
-  | EvBlocked PlayerId         -- chạm đối thủ nhưng bị chặn lại
+  | EvTrailCut PlayerId Int         -- bị cắt lãnh thổ do bị tấn công
   | EvClaimed PlayerId Int     -- khép vòng, chiếm thêm n ô
   | EvBomb PlayerId Int        -- đạp bom, mất n ô đất
   | EvExpand PlayerId Int      -- nhặt phình lãnh địa, thêm n ô đất
@@ -182,7 +182,12 @@ initGame cfg = GameState
 halfterritorypunish :: PlayerId -> Position -> GameState -> GameState
 --victim là người chơi chịu mất mát
 --hitPos là tọa độ xảy ra va chạm collision
-halfterritorypunish victim hitPos gs =  setLandCells victim Empty cellsToLose gs
+halfterritorypunish victim hitPos gs =  
+  let gs1 = setLandCells victim Empty cellsToLose gs
+      victimePlayer = getPlayer victim gs1
+      victimPlayer =  extendTrail (playerPos victimPlayer) (resetTrail victimPlayer)
+      gs2 = putPlayer (resetTrail victimPlayer) gs1
+  in gs2
 
   where 
       (hx,hy) = hitPos
@@ -190,7 +195,7 @@ halfterritorypunish victim hitPos gs =  setLandCells victim Empty cellsToLose gs
         --lấy tọa độ đất của người bị phạt
       numberToClose = length victimCells `div` 2
       -- số phần đất của nạn nhân bị mất đó chia nửa.
-      cellsToLose = take numberToCLose (sortOn distanceToHit victimCells)
+      cellsToLose = take numberToClose (sortOn distanceToHit victimCells)
       -- tính khoảng cách từ một ô đất tới vị trí chạm và xếp nó vào danh sashc dựa trên keestq ủa này
       -- xong thì lấy được danh sách các ô cần phải bị xóa do phạt.
       distanceToHit (x,y) = abs (x-hx) + abs(y-hy)
@@ -203,7 +208,15 @@ applyMove pid dir gs
   | target == playerPos me           = penalize EvOutOfBounds    -- movePlayer trả về chỗ cũ <=> ra ngoài biên
     --mình đụng trail đối thủ thì đối thủ bị trừ nửa đất
     -- không phải thì game cứ tiếp tục
-  |isInTrail target (playerTrail foe) = halfterritorypunish (opponent pid) target gs
+  |target == playerPos foe = settle (advance pid target gs)
+  |collisions target (playerTrail foe) = 
+              let victim = opponent pid
+                  before = territorySize victim gs
+                  gs1 = halfterritorypunish victim target gs
+                  gs2 = advance pid target gs1
+                  gs3 = settle gs2
+                  lost = before - territorySize victim gs3
+              in gs3 {gsEvent = Just(EveTrailCut victim lost)}
   | otherwise                        = settle (advance pid target gs)
   where
     cfg    = gsConfig gs
