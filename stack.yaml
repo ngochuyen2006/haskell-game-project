@@ -7,3 +7,10 @@ packages:
 
 # Dependency packages to be pulled from upstream that are not in the snapshot.
 extra-deps: []
+
+# gloss dùng backend GLFW (tự biên dịch, không cần cài freeglut.dll trên Windows).
+# Nếu muốn dùng GLUT thì đổi: GLFW: false, GLUT: true
+flags:
+  gloss:
+    GLFW: true
+    GLUT: false
