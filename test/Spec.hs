@@ -12,6 +12,7 @@ import qualified PlayerSpec
 import qualified InputSpec
 import qualified GameSpec
 import qualified UISpec
+import qualified StorageSpec
 
 -- Mỗi module có một file test riêng, xuất ra `spec :: Spec`.
 -- Thêm file test mới: xem hướng dẫn trong README (mục "Kiểm thử").
@@ -27,3 +28,4 @@ main = hspec $ do
   describe "Input"    InputSpec.spec
   describe "Game"     GameSpec.spec
   describe "UI"       UISpec.spec
+  describe "Storage"  StorageSpec.spec

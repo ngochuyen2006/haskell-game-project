@@ -58,10 +58,11 @@ test-suite my-game-project-test
   hs-source-dirs: test
   main-is: Spec.hs
   build-depends: base >= 4.7 && < 5
-               , my-game-project
-               , hspec
-               , containers
-               , vector
+                , my-game-project
+                , hspec
+                , containers
+                , vector
+                ,directory
   other-modules:
       GameSpec
       ,InputSpec
@@ -73,4 +74,5 @@ test-suite my-game-project-test
       ,ItemSpec
       ,TerritorySpec
       ,TrailSpec
+      ,StorageSpec
   default-language: Haskell2010

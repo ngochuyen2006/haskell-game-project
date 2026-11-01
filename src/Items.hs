@@ -9,7 +9,7 @@ module Items
 
 import Types (Position(..))
 
--- Bom: ai đạp vào sẽ mất một phần đất.  Expand: phình lãnh địa 3x3.
+-- Bom: đạp vô là mất trail.  Expand: phình lãnh địa 3x3.
 data ItemKind = Bomb | Expand
   deriving (Show, Eq)
 

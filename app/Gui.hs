@@ -263,7 +263,7 @@ describeEvent gs ev = case ev of
   EvHitTrail p    -> show p ++ " dung vet duong: dung yen, -" ++ pen ++ " diem"
   EvBlocked p n   -> show p ++ " bi mat" ++ show n ++ "o dat."
   EvClaimed p n   -> show p ++ " khep vong, chiem them " ++ show n ++ " o"
-  EvBomb p n      -> show p ++ " dap trung bom: mat " ++ show n ++ " o dat"
+  EvBomb p  -> show p ++ " dap trung bom: mat trail"
   EvExpand p n    -> show p ++ " nhat phinh lanh dia: them " ++ show n ++ " o dat"
   where pen = show (cfgPenalty (gsConfig gs))
 

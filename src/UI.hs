@@ -126,9 +126,9 @@ describeEvent :: GameState -> Event -> String
 describeEvent gs ev = case ev of
   EvOutOfBounds p -> show p ++ " đi ra ngoài biên: đứng yên, -" ++ pen ++ " điểm"
   EvHitTrail p    -> show p ++ " đụng vệt đường: đứng yên, -" ++ pen ++ " điểm"
-  EvBlocked p  n   -> show p ++ " chạm đối thủ: bị chặn lại"
+  EvBlocked p n   -> show p ++ " bi mat" ++ show n ++ "o dat."
   EvClaimed p n   -> show p ++ " khép vòng, chiếm thêm " ++ show n ++ " ô"
-  EvBomb p n      -> show p ++ " đạp trúng bom: mất " ++ show n ++ " ô đất"
+  EvBomb p      -> show p ++ " đạp trúng bom: mất trail"
   EvExpand p n    -> show p ++ " nhặt phình lãnh địa: thêm " ++ show n ++ " ô đất"
   where pen = show (cfgPenalty (gsConfig gs))
 
@@ -144,7 +144,7 @@ renderIntro cfg = unlines
   , "  - Vòng bao luôn đất đối thủ thì chiếm cả phần đó. Bao vây được đối thủ là thắng ngay."
   , "  - Đứng trong đất đối thủ mà bị họ chạm vào thì bạn thua ngay."
   , "  - Đụng vệt đường hoặc ra ngoài biên: đứng yên và bị trừ " ++ show (cfgPenalty cfg) ++ " điểm."
-  , "  - @ là bom (mất đất khi đạp trúng), + là phình lãnh địa (mở rộng đất 3x3)."
+  , "  - @ là bom (mất trail nếu đạp trúng), + là phình lãnh địa (mở rộng đất 3x3)."
   , ""
   , "  Điều khiển   P1: W/S/A/D   P2: I/K/J/L   Q: thoát"
   , ""

@@ -106,7 +106,7 @@ data Event
   | EvHitTrail PlayerId        -- đụng vệt đường
   | EvBlocked PlayerId Int -- chạm đối thủ đang đứng trong đất của họ: bị chặn lại
   | EvClaimed PlayerId Int     -- khép vòng, chiếm thêm n ô
-  | EvBomb PlayerId Int        -- đạp bom, mất n ô đất
+  | EvBomb PlayerId  -- đạp bom, mất trail
   | EvExpand PlayerId Int      -- nhặt phình lãnh địa, thêm n ô đất
   deriving (Show, Eq)
 
@@ -396,7 +396,7 @@ explode pid _pos gs =
 
     in
         (putPlayer me' gs)
-            { gsEvent = Just (EvBomb pid 0) }
+            { gsEvent = Just (EvBomb pid ) }
 expand :: PlayerId -> Position -> GameState -> GameState
 expand pid pos gs
   | playerTrail (getPlayer pid gs3) == Trail [] = gs3

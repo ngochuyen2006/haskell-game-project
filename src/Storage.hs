@@ -10,6 +10,7 @@ module Storage
 import Control.Exception (IOException, try)
 import Data.Aeson
 import qualified Data.ByteString.Lazy as BL
+import qualified Data.ByteString as BS
 import Data.Time.Clock (getCurrentTime)
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 
@@ -55,15 +56,15 @@ loadHistory = do
   if not exists
     then return (Right [])
     else do
-      result <- try (BL.readFile historyFile)
-        :: IO (Either IOException BL.ByteString)
+      result <- try (BS.readFile historyFile)
+          :: IO (Either IOException BS.ByteString)
 
       case result of
         Left err ->
           return (Left ("Không thể đọc file lịch sử: " ++ show err))
 
         Right contents ->
-          case eitherDecode' contents of
+          case eitherDecodeStrict' contents of
             Left err ->
               return (Left ("Dữ liệu JSON không hợp lệ: " ++ err))
 
