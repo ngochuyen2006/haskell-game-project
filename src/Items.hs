@@ -36,7 +36,7 @@ randomFreeCell w h blocked = go (20 :: Int)
       let s1 = nextSeed s
           s2 = nextSeed s1
           p  = Position ((s1 `div` 65536) `mod` max 1 w)
-              ((s2 `div` 65536) `mod` max 1 h)
+                        ((s2 `div` 65536) `mod` max 1 h)
       in if p `elem` blocked then go (n - 1) s2 else (Just p, s2)
 
 -- Tăng tuổi của mọi vật phẩm thêm dt giây.
