@@ -6,8 +6,8 @@ import Test.Hspec
 import Game
 import Items
 import Player
-import Types
 import UI
+import Types
 
 g0 :: GameState
 g0 = initGame defaultConfig
@@ -32,7 +32,7 @@ spec = do
       let g = foldl (\s (p, d) -> applyMove p d s) g0 [(P1, MRight), (P1, MRight), (P1, MDown), (P1, MDown)]
       count 'o' (renderBoard False g) `shouldBe` 2
     it "bom là @ và phình lãnh địa là +" $ do
-      let g = g0 { gsItems = [Item Bomb (10, 3) 0, Item Expand (12, 3) 0] }
+      let g = g0 { gsItems = [Item Bomb (Position 10 3) 0, Item Expand (Position 12 3) 0] }
       count '@' (renderBoard False g) `shouldBe` 1
       count '+' (renderBoard False g) `shouldSatisfy` (>= 3)   -- 1 ô + và 2 góc khung "+"
     it "chỉ có mã màu khi bật màu" $ do
@@ -48,7 +48,7 @@ spec = do
     it "hiện hướng dẫn điều khiển" $
       renderGame False g0 `shouldSatisfy` isInfixOf "W/S/A/D"
     it "hiện thông báo va chạm" $ do
-      let g = applyMove P1 MLeft g0 { gsPlayer1 = (gsPlayer1 g0) { playerPos = (0, 0) } }
+      let g = applyMove P1 MLeft g0 { gsPlayer1 = (gsPlayer1 g0) { playerPos = (Position 0 0) } }
       renderGame False g `shouldSatisfy` isInfixOf "đi ra ngoài biên"
     it "hiện kết quả hòa / thắng khi hết giờ" $ do
       renderGame False (tick 61 g0) `shouldSatisfy` isInfixOf "HẾT GIỜ - HÒA"

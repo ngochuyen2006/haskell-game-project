@@ -293,10 +293,6 @@ handle (EventKey key Down _ _) w = case key of
   SpecialKey KeyEsc   -> exitSuccess
   SpecialKey KeySpace -> return (startIf Intro w)
   SpecialKey KeyEnter -> return (startIf Intro w)
-  SpecialKey KeyUp    -> return (move P2 MUp w)
-  SpecialKey KeyDown  -> return (move P2 MDown w)
-  SpecialKey KeyLeft  -> return (move P2 MLeft w)
-  SpecialKey KeyRight -> return (move P2 MRight w)
   Char c
     | c `elem` "rR", wPhase w == InPlay, isFinished (wGame w) -> return (restart w)
     | otherwise -> case parseKey c of

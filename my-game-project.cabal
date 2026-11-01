@@ -22,8 +22,7 @@ library
                   , Game
                   , UI
                   , GameLoop
-  other-modules:
-                Collision
+                  , Collision
   build-depends: base >= 4.7 && < 5, vector, containers
   default-language: Haskell2010
 
@@ -53,4 +52,11 @@ test-suite my-game-project-test
   build-depends: base >= 4.7 && < 5
                , my-game-project
                , hspec
+  other-modules:
+      GameSpec
+      ,InputSpec
+      ,MapSpec
+      ,MovementSpec
+      ,PlayerSpec
+      ,UISpec
   default-language: Haskell2010

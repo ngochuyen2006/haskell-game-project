@@ -2,6 +2,7 @@
 module Game
   ( Config(..)
   , defaultConfig
+  ,validateConfig
   , Status(..)
   , Outcome(..)
   , EndReason(..)
@@ -268,18 +269,25 @@ halfterritorypunish victim hitPos gs =
 
 applyMove :: PlayerId -> Direction -> GameState -> GameState
 applyMove pid dir gs
-  | isFinished gs = gs
-  | target == playerPos me  = penalize EvOutOfBounds    -- movePlayer trả về chỗ cũ <=> ra ngoài biên
+    | isFinished gs = gs
+    | target == playerPos me  = penalize EvOutOfBounds    -- movePlayer trả về chỗ cũ <=> ra ngoài biên
     --mình đụng trail đối thủ thì đối thủ bị trừ nửa đất
-      -- không phải thì game cứ tiếp tục
-  | target == playerPos foe  = settle (advance pid target gs)
-  | collisions target (playerTrail foe) =
-      let victim = opponent pid
-          before = territorySize victim gs
-          gs1 = halfterritorypunish victim target gs
-          lost = before - territorySize victim gs1
-      in gs1 {gsEvent = Just(EvBlocked victim lost)}
-  | otherwise = settle (advance pid target gs)
+    -- không phải thì game cứ tiếp tục
+    | target == playerPos foe && landAt pid target gs =
+        gs { gsStatus = Finished (Win pid Touched) }
+
+    | target == playerPos foe =
+        let before = territorySize pid gs
+            gs1 = halfterritorypunish pid target gs
+            lost = before - territorySize pid gs1
+        in gs1 { gsEvent = Just (EvBlocked pid lost) }
+    | collisions target (playerTrail foe) =
+        let victim = opponent pid
+            before = territorySize victim gs
+            gs1 = halfterritorypunish victim target gs
+            lost = before - territorySize victim gs1
+        in gs1 {gsEvent = Just(EvBlocked victim lost)}
+    | otherwise = settle (advance pid target gs)
   where
     cfg    = gsConfig gs
     me     = getPlayer pid gs
