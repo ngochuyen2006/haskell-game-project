@@ -162,7 +162,7 @@ renderIntro cfg = pictures
   where
     drawKeys = pictures
       [ translate (-250) 90 (keyBox P1 "P1 xanh:  W A S D")
-      , translate 250 90 (keyBox P2 "P2 do:  I J K L / mui ten")
+      , translate 250 90 (keyBox P2 "P2 do:  I J K L")
       ]
     keyBox pid s = pictures
       [ color (landColor pid) (rectangleSolid 440 40)
