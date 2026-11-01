@@ -32,6 +32,3 @@ movePlayer (Position x y) dir (width, height) =
         then Position nx ny
         else Position x y
 
---mặc định người chơi mới vào game chưa bấm phím gì thì đi thăng lên luôn
-defaultmove :: Direction
-defaultmove = MUp

@@ -1,7 +1,7 @@
+--sửa lại hành vi cần làm gì khi va chạm
 module Game
   ( Config(..)
   , defaultConfig
-  ,validateConfig
   , Status(..)
   , Outcome(..)
   , EndReason(..)
@@ -21,7 +21,6 @@ module Game
 
 import Data.List (find, foldl')
 import qualified Data.Vector as V
-import qualified Data.Set as S
 import Items
 import Map
 import Movement (movePlayer)
@@ -51,10 +50,10 @@ data Config = Config
 
 defaultConfig :: Config
 defaultConfig = Config
-  { cfgWidth      = 34
-  , cfgHeight     = 18
+  { cfgWidth      = 30
+  , cfgHeight     = 16
   , cfgDuration   = 60
-  , cfgSpawnEvery = 5
+  , cfgSpawnEvery = 3
   , cfgMaxBombs   = 3
   , cfgMaxExpand  = 3
   , cfgBombLife   = 10
@@ -65,25 +64,26 @@ defaultConfig = Config
 -- Kiểm tra cấu hình game trước khi khởi tạo.
 validateConfig :: Config -> Either String ()
 validateConfig cfg
-  | cfgWidth cfg < 10 = 
-    Left "Chieu rong ban do phai tu 10 tro len."
-  | cfgHeight cfg < 3 =
-      Left "Chieu cao ban do phai tu 3 tro len."
-  | not (positiveFinite (cfgDuration cfg)) =
-      Left "Thoi gian game phai la so duong hop le."
-  | not (positiveFinite (cfgSpawnEvery cfg)) =
-      Left "Thoi gian sinh vat pham phai la so duong hop le."
-  | not (positiveFinite (cfgBombLife cfg)) =
-      Left "Thoi gian ton tai cua bom phai la so duong hop le."
-  | cfgMaxBombs cfg < 0 =
-      Left "So luong bom toi da khong duoc am."
-  | cfgMaxExpand cfg < 0 =
-      Left "So luong Expand toi da khong duoc am."
-  | cfgPenalty cfg < 0 =
-      Left "Diem phat khong duoc am."
-  | otherwise = Right ()
-  where
-    positiveFinite n = n > 0 && not (isNaN n || isInfinite n)
+    | cfgWidth cfg < 10 =
+        Left "Chieu rong ban do phai tu 10 tro len."
+    | cfgHeight cfg < 3 =
+        Left "Chieu cao ban do phai tu 3 tro len."
+    | not (positiveFinite (cfgDuration cfg)) =
+        Left "Thoi gian game phai la so duong hop le."
+    | not (positiveFinite (cfgSpawnEvery cfg)) =
+        Left "Thoi gian sinh vat pham phai la so duong hop le."
+    | not (positiveFinite (cfgBombLife cfg)) =
+        Left "Thoi gian ton tai cua bom phai la so duong hop le."
+    | cfgMaxBombs cfg < 0 =
+        Left "So luong bom toi da khong duoc am."
+    | cfgMaxExpand cfg < 0 =
+        Left "So luong Expand toi da khong duoc am."
+    | cfgPenalty cfg < 0 =
+        Left "Diem phat khong duoc am."
+    | otherwise = Right ()
+    where
+        positiveFinite n = n > 0 && not (isNaN n || isInfinite n)
+
 --TRẠNG THÁI
 
 
@@ -201,28 +201,31 @@ allCells cfg =
 
 --KHỞI TẠO
 
-
 -- P1 bắt đầu ở bên trái, P2 ở bên phải, mỗi người có mảnh đất 3x3.
 initGame :: Config -> GameState
-initGame cfg = GameState
-  { gsConfig     = cfg
-  , gsPlayer1    = newPlayer P1 s1
-  , gsPlayer2    = newPlayer P2 s2
-  , gsLand1      = paint Territory (square s1) blank
-  , gsLand2      = paint Territory (square s2) blank
-  , gsItems      = []
-  , gsTimeLeft   = cfgDuration cfg
-  , gsSpawnTimer = 0
-  , gsSeed       = cfgSeed cfg
-  , gsStatus     = Playing
-  , gsEvent      = Nothing
-  }
-  where
-    w = cfgWidth cfg
-    h = cfgHeight cfg
-    s1 = Position 3 (h `div` 2)
-    s2 = Position (w - 4) (h `div` 2)
-    blank = GameMap w h (V.replicate (w * h) Empty)
+initGame cfg =
+    case validateConfig cfg of
+        Left err -> error ("Cau hinh game khong hop le: " ++ err)
+        Right () -> GameState
+            { gsConfig     = cfg
+            , gsPlayer1    = newPlayer P1 s1
+            , gsPlayer2    = newPlayer P2 s2
+            , gsLand1      = paint Territory (square s1) blank
+            , gsLand2      = paint Territory (square s2) blank
+            , gsItems      = []
+            , gsTimeLeft   = cfgDuration cfg
+            , gsSpawnTimer = 0
+            , gsSeed       = cfgSeed cfg
+            , gsStatus     = Playing
+            , gsEvent      = Nothing
+            }
+    where
+        w = cfgWidth cfg
+        h = cfgHeight cfg
+        s1 = Position 3 (h `div` 2)
+        s2 = Position (w - 4) (h `div` 2)
+        blank = GameMap w h (V.replicate (w * h) Empty)
+
 
 
 --DI CHUYỂN
@@ -253,9 +256,12 @@ halfterritorypunish victim hitPos gs =
                 (pos : _) -> pos
                 []        -> playerPos oldPlayer
         -- Đưa người chơi về vị trí mới và xóa trail cũ.
-        resetPlayer =setPlayerPos resetPos (resetTrail oldPlayer)
-        -- Bắt đầu trail mới tại vị trí vừa được đưa đến.
-        newPlayer = extendTrail resetPos resetPlayer
+        resetPlayer = setPlayerPos resetPos (resetTrail oldPlayer)
+
+
+        newPlayer =
+          (extendTrail resetPos resetPlayer)
+            { playerTrailStart = Just resetPos }
     in
         putPlayer newPlayer gs1
 
@@ -296,9 +302,25 @@ advance pid target gs
   where
     me     = getPlayer pid gs
     onHome = landAt pid target gs
-    me'    | onHome    = setPlayerPos target me
-           | otherwise = extendTrail target (setPlayerPos target me)
-    moved  = (putPlayer me' gs) { gsEvent = Nothing }
+
+
+    me'
+      | onHome = setPlayerPos target me
+      | otherwise =
+          let
+              start =
+                  case playerTrailStart me of
+                      Nothing -> Just (playerPos me)
+                      old     -> old
+
+
+              updated = extendTrail target me
+          in
+              (setPlayerPos target updated)
+                  { playerTrailStart = start }
+
+
+    moved = (putPlayer me' gs) { gsEvent = Nothing }
 
 
 {- Khép vòng: các ô trống bị bao kín và các ô của vệt đường trở thành đất của `pid`;
@@ -345,178 +367,28 @@ pickUp pid gs =
     pos = playerPos (getPlayer pid gs)
 
 
--- Đạp bom: phá hủy lãnh địa trong vùng 3x3 quanh bom.
--- Nếu Trail bị phá hủy hoặc mất kết nối, tìm đường nối mới bằng BFS.
+-- Đạp bom: xóa Trail và đưa người chơi về vị trí bắt đầu vẽ Trail.
+-- Không ảnh hưởng đến lãnh địa.
 explode :: PlayerId -> Position -> GameState -> GameState
-explode pid pos gs =
+explode pid _pos gs =
     let
-        blast = square pos
+        me = getPlayer pid gs
 
 
-        -- Tổng số ô lãnh địa trước khi bom nổ.
-        before = territorySize pid gs
-
-
-        -- Chỉ xóa lãnh địa của người đạp bom.
-        gs1 = setLandCells pid Empty blast gs
-
-
-        -- Số ô lãnh địa thực tế bị phá hủy.
-        lost = before - territorySize pid gs1
-
-
-        me = getPlayer pid gs1
-
-
-        -- Danh sách Trail: vị trí mới nhất nằm ở đầu.
-        oldTrail = trailPositions (playerTrail me)
-
-
-        -- Kiểm tra bom có phá hủy ô Trail hay không.
-        trailHit = any (`elem` blast) oldTrail
-
-
-        -- Kiểm tra đầu Trail còn kết nối với lãnh địa không.
-        connected = trailTouchesLand pid gs1 oldTrail
-
-
-        -- Cần nối lại nếu Trail bị phá hủy hoặc mất kết nối.
-        needsReconnect =
-            if null oldTrail
-                then not (landAt pid (playerPos me) gs1)
-                else trailHit || not connected
-
-
-        -- Tìm đường nối lại.
         me' =
-            if needsReconnect
-                then case reconnectPath pid gs1 (playerPos me) of
-                    Just path -> me { playerTrail = Trail path }
-                    Nothing   -> me { playerTrail = Trail [] }
-                else me
+            case playerTrailStart me of
+                Just start ->
+                    (resetTrail me)
+                        { playerPos = start }
+
+
+                Nothing ->
+                    resetTrail me
 
 
     in
-        (putPlayer me' gs1)
-            { gsEvent = Just (EvBomb pid lost) }
-
-
-
-
--- Lấy danh sách vị trí của Trail.
-trailPositions :: Trail -> [Position]
-trailPositions (Trail positions) = positions
-
-
-
-
--- Kiểm tra đầu Trail có tiếp giáp lãnh địa của người chơi không.
-trailTouchesLand :: PlayerId -> GameState -> [Position] -> Bool
-trailTouchesLand _ _ [] = False
-
-
-trailTouchesLand pid gs positions =
-    let
-        Position x y = last positions
-
-
-        adjacent =
-            [ Position (x + 1) y
-            , Position (x - 1) y
-            , Position x (y + 1)
-            , Position x (y - 1)
-            ]
-
-
-    in
-        any (\p -> landAt pid p gs) adjacent
-
-
-
-
--- BFS tìm đường ngắn nhất từ vị trí người chơi
--- đến một ô trống tiếp giáp lãnh địa của chính mình.
-reconnectPath :: PlayerId -> GameState -> Position -> Maybe [Position]
-reconnectPath pid gs start
-    | landAt pid start gs = Just []
-    | otherwise = bfs [([start], S.singleton start)]
-
-
-    where
-        cfg = gsConfig gs
-        w = cfgWidth cfg
-        h = cfgHeight cfg
-
-
-        ownLand = landOf pid gs
-        foeLand = landOf (opponent pid) gs
-
-
-        -- Các ô lân cận theo 4 hướng.
-        neighbors (Position x y) =
-            filter inBounds
-                [ Position (x + 1) y
-                , Position (x - 1) y
-                , Position x (y + 1)
-                , Position x (y - 1)
-                ]
-
-
-        inBounds (Position x y) =
-            x >= 0 && x < w && y >= 0 && y < h
-
-
-        -- Đích là ô trống tiếp giáp lãnh địa của người chơi.
-        isGoal p =
-            any
-                (\q -> getTile q ownLand == Just Territory)
-                (neighbors p)
-
-
-        -- Chỉ đi qua ô trống.
-        -- Không đi xuyên lãnh địa đối thủ.
-        canEnter p =
-            p == start ||
-            ( getTile p ownLand == Just Empty
-           && getTile p foeLand == Just Empty
-            )
-
-
-        -- BFS sử dụng hàng đợi FIFO.
-        bfs [] = Nothing
-
-
-        bfs ((path, visited) : queue)
-            | isGoal current = Just path
-
-
-            | otherwise =
-                let
-                    next =
-                        [ p
-                        | p <- neighbors current
-                        , p `S.notMember` visited
-                        , canEnter p
-                        ]
-
-
-                    visited' =
-                        foldr S.insert visited next
-
-
-                    queue' =
-                        queue ++
-                        [ (path ++ [p], visited')
-                        | p <- next
-                        ]
-
-
-                in
-                    bfs queue'
-
-
-            where
-                current = last path
+        (putPlayer me' gs)
+            { gsEvent = Just (EvBomb pid 0) }
 expand :: PlayerId -> Position -> GameState -> GameState
 expand pid pos gs
   | playerTrail (getPlayer pid gs3) == Trail [] = gs3
@@ -589,6 +461,4 @@ finishByTime gs = gs { gsStatus = Finished outcome }
     outcome | s1 > s2   = Win P1 TimeUp
             | s2 > s1   = Win P2 TimeUp
             | otherwise = Draw
-
-
 
