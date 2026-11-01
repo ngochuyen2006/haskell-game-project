@@ -7,10 +7,11 @@ import Control.Exception (bracket, bracket_)
 import Control.Monad (when)
 import GHC.Clock (getMonotonicTime)
 import System.IO
-import Storage
+
 import Game
 import Input
 import UI
+import Storage
 
 data LoopEvent
   = InputEvent Action
@@ -75,6 +76,16 @@ runGame cfg color = do
             Quit -> return ()
             _    -> inputWorker channel
 
+    saveResult gs = do
+      result <- saveGameResult gs
+
+      case result of
+        Left err ->
+          putStrLn ("\n  Cảnh báo: " ++ err)
+
+        Right _ ->
+          putStrLn "\n  Đã lưu kết quả trận đấu."
+
     timerWorker :: Chan LoopEvent -> IO ()
     timerWorker channel = do
       lastT <- getMonotonicTime
@@ -93,41 +104,27 @@ runGame cfg color = do
     loop :: Chan LoopEvent -> GameState -> String -> IO Bool
     loop channel gs prevFrame = do
       event <- readChan channel
-
       case event of
         InputEvent Quit ->
           return False
 
         InputEvent (Move pid direction) ->
-          updateAndContinue
-            channel
-            (applyMove pid direction gs)
-            prevFrame
+          updateAndContinue channel (applyMove pid direction gs) prevFrame
 
         TimerEvent dt ->
-          updateAndContinue
-            channel
-            (tick dt gs)
-            prevFrame
+          updateAndContinue channel (tick dt gs) prevFrame
 
-    updateAndContinue
-      :: Chan LoopEvent
-      -> GameState
-      -> String
-      -> IO Bool
+    updateAndContinue :: Chan LoopEvent -> GameState -> String -> IO Bool
     updateAndContinue channel gs prevFrame = do
-  let frame = renderGame color gs
+      let frame = renderGame color gs
+      when (frame /= prevFrame) $
+        drawFrame frame
 
-  when (frame /= prevFrame) $
-    drawFrame frame
-
-  if isFinished gs
-    then do
-      putStrLn "\n  Trận đấu đã kết thúc."
-
-      saveResult gs
-      printHistory
-
-      return True
-    else
-      loop channel gs frame
+      if isFinished gs
+        then do
+          putStrLn "\n  Trận đấu đã kết thúc."
+          saveResult gs
+          printHistory
+          return True
+        else
+          loop channel gs frame
